@@ -1,10 +1,10 @@
 package main
 
 import (
-	"strconv"
 	"github.com/pkg/errors"
-	"regexp"
 	"net"
+	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -21,38 +21,37 @@ type Record struct {
 // Validates the record
 func (r *Record) Validate() error {
 	if r.TTL < 60 && r.TTL > 2592000 {
-		return errors.New(r.Name + ": TTL has to be number between 60 and 2592000")
+		return errors.New(r.Type + " " + r.Name + ": TTL has to be number between 60 and 2592000")
 	}
 
 	if r.Type == "A" {
 		parsed := net.ParseIP(r.Value)
 
 		if parsed == nil || !strings.Contains(r.Value, ".") {
-			return errors.New(r.Name + ": IP address of A record is not valid")
+			return errors.New(r.Type + " " + r.Name + ": IP address of A record is not valid")
 		}
 	} else if r.Type == "AAAA" {
 		parsed := net.ParseIP(r.Value)
 
 		if parsed == nil || !strings.Contains(r.Value, ":") {
-			return errors.New(r.Name + ": IP address of AAAA record is not valid")
+			return errors.New(r.Type + " " + r.Name + ": IP address of AAAA record is not valid")
 		}
 	} else if r.Type == "CNAME" {
-		matched, err := regexp.MatchString(`[a-z\.0-9]{3,64}`, r.Value)
+		matched, err := regexp.MatchString(`[a-z\.0-9@]{1,64}`, r.Value)
 		if err != nil {
 			panic(err)
 		}
 		if !matched {
-			return errors.New(r.Name + ": CNAME has not a valid value")
+			return errors.New(r.Type + " " + r.Name + ": CNAME has not a valid value")
 		}
 	} else if r.Type == "TXT" {
 		if strings.Contains(r.Value, "\"") || strings.Contains(r.Value, "'") || strings.Contains(r.Value, "`") {
-			return errors.New(r.Name + ": characters \"' or ` are not allowed in TXT records")
+			return errors.New(r.Type + " " + r.Name + ": characters \"' or ` are not allowed in TXT records")
 		}
-		// TODO: just check if there are not unsupported characters (" or `)
 	} else if r.Type == "SRV" {
 	} else if r.Type == "MX" {
 		if r.Prio <= 0 && r.Prio <= 100 {
-			return errors.New(r.Name + ": Prio has to be bigger than 0 and smaller than 100")
+			return errors.New(r.Type + " " + r.Name + ": Prio has to be bigger than 0 and smaller than 100")
 		}
 		//TODO: Has to be domain and valid A/AAAA record (even in different location)
 	} else {
@@ -64,24 +63,70 @@ func (r *Record) Validate() error {
 
 // Renders one record
 func (r *Record) Render() string {
+	var value = r.Value
+
+	// In case of TXT, we have to split large records into lines
 	if r.Type == "TXT" {
-		// TODO: split the value
+		var part = 64
+		var length = len(r.Value)
+		var last = length % part
+		var parts []string
+
+		for current := 0; current < length; current += part {
+			if current+part > length {
+				parts = append(parts, r.Value[current:current+last])
+			} else {
+				parts = append(parts, r.Value[current:current+part])
+			}
+		}
+
+		value = "\"" + strings.Join(parts, "\"\n\"") + "\""
 	}
 
-	// TODO: prio only in case of MX record
-	return r.Name + "    " +
-		strconv.Itoa(r.TTL) + "s    " +
-		r.Type + "    " +
-		strconv.Itoa(r.Prio) + "    " +
-		r.Value
+	// If the record is MX, add prio
+	if r.Type == "MX" {
+		return r.Name + "    " +
+			strconv.Itoa(r.TTL) + "s    " +
+			r.Type + "  " +
+			strconv.Itoa(r.Prio) + "    " +
+			value
+	} else {
+		return r.Name + "    " +
+			strconv.Itoa(r.TTL) + "s    " +
+			r.Type + "      " +
+			value
+	}
 }
 
 // Zone struct
 
 type Zone struct {
-	Serial  string
-	Records []Record
-	Tags    []string
+	Serial     string
+	Records    []Record
+	Tags       []string
+	AbuseEmail string
+}
+
+func (z *Zone) RenderAbuseEmail() string {
+	if z.AbuseEmail == "" {
+		return config.RenderEmail()
+	} else {
+		return strings.Replace(z.AbuseEmail, "@", ".", -1)
+	}
+}
+
+func (z *Zone) AddRecord(name string, ttl int, recordType string, prio int, value string) []error {
+	var record = Record{
+		Name:  name,
+		TTL:   ttl,
+		Type:  recordType,
+		Prio:  prio,
+		Value: value,
+	}
+
+	z.Records = append(z.Records, record)
+
+	return z.Validate()
 }
 
 // Validates records in the zone
@@ -112,11 +157,10 @@ func (z *Zone) Validate() []error {
 				}
 			}
 			if count > 1 {
-				errorsMsgs = append(errorsMsgs, errors.New(record.Name + " is already used in another A/AAAA/CNAME record"))
+				errorsMsgs = append(errorsMsgs, errors.New(record.Type+" "+record.Name+" is already used in another A/AAAA/CNAME record"))
 			}
 		}
 	}
-
 
 	return errorsMsgs
 }
@@ -134,19 +178,19 @@ func (z *Zone) Render() string {
 		<minimum-TTL> )
 	*/
 
-	zone = `$TTL 86400s
-@       IN      SOA     ns1.rosti.cz. abuse.rosti.cz.  (
+	zone = `$TTL ` + strconv.Itoa(config.TTL) + `s
+@       IN      SOA     ` + config.PrimaryNameServer + `. ` + z.RenderAbuseEmail() + `.  (
 		` + z.Serial + `
-		300
-		180
-		604800
-		30
+		` + strconv.Itoa(config.TimeToRefresh) + `
+		` + strconv.Itoa(config.TimeToRetry) + `
+		` + strconv.Itoa(config.TimeToExpire) + `
+		` + strconv.Itoa(config.MinimalTTL) + `
 )
-
-	IN	NS	ns1.rosti.cz.
-	IN	NS	ns2.rosti.cz.
-
 `
+	for _, nameserver := range config.NameServers {
+		zone += "    IN    NS    " + nameserver + ".\n"
+	}
+	zone += "\n"
 
 	for _, record := range z.Records {
 		zone += record.Render()
