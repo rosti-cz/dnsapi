@@ -27,6 +27,7 @@ func main() {
 	zone.AddRecord("@", 300, "AAAA", 0, "2001::2")
 	zone.AddRecord("www", 300, "CNAME", 0, "@")
 	zone.AddRecord("@", 300, "MX", 10, "mail.rosti.cz.")
+	zone.AddRecord("@", 300, "TXT", 0, "igeeweofeiroomoogokieghaithohthaechoocherohveehiebawuyeixeecoveegoeyohfachainauquaeceetipheivubohmoegheizeelaiquanaokooquiedokaidurahveehoshazaseveitheiyitachudiishaeghaexoovachacaijuyiedeochojingafeexusuquaingeiboovachahlaechahcashoophairohthaghobahjaixieboteixameimohmaedahriebaekoshohpeecueyaoseeveibavaithohquaevoalohreingewiesaijiojiehielahzaelohpechuohiefaeyaetiegengahgatheefaipeimeeviedimibohmoyajefahghaaraehieyiepameegheathaechielixahbeidohyaitionahjaenoshikahbahyaebeachahxalaeghuloochaekuthaiquaedoo")
 
 	errs := zone.Validate()
 	if len(errs) > 0 {

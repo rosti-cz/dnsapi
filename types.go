@@ -20,7 +20,9 @@ type Record struct {
 
 // Validates the record
 func (r *Record) Validate() error {
-	if r.TTL < 60 && r.TTL > 2592000 {
+	// TODO test name
+
+	if r.TTL < 60 || r.TTL > 2592000 {
 		return errors.New(r.Type + " " + r.Name + ": TTL has to be number between 60 and 2592000")
 	}
 
@@ -80,7 +82,7 @@ func (r *Record) Render() string {
 			}
 		}
 
-		value = "\"" + strings.Join(parts, "\"\n\"") + "\""
+		value = "(\"" + strings.Join(parts, "\"\n        \"") + "\")"
 	}
 
 	// If the record is MX, add prio
@@ -190,7 +192,7 @@ func (z *Zone) Render() string {
 	for _, nameserver := range config.NameServers {
 		zone += "    IN    NS    " + nameserver + ".\n"
 	}
-	zone += "\n"
+	//zone += "\n"
 
 	for _, record := range z.Records {
 		zone += record.Render()
