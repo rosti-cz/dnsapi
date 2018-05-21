@@ -1,0 +1,38 @@
+---
+resources:
+- name: repo
+  type: git
+  source:
+    uri: https://github.com/creckx/dnsapi.git
+    branch: master
+
+jobs:
+- name: Testing
+  public: true
+  plan:
+  - get: repo
+    trigger: yes
+  - task: test
+    config:
+      platform: linux
+      inputs:
+      - name: repo
+      image_resource:
+        type: docker-image
+        source:
+          repository: golang
+          tag: 1.10.2-stretch
+      run:
+        path: sh
+        args:
+          - -c
+          - |
+            mkdir -p $HOME/go/src
+            export GOPATH=`$HOME/go`
+            cp -a repo $HOME/go/src/
+            apt-get update
+            apt-get install -q -y automake
+            #cd $HOME/go/src/repo
+            cd $HOME/go/src/repo
+            make test
+
