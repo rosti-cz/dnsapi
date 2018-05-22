@@ -6,7 +6,7 @@ import (
 	"crypto/sha256"
 )
 
-func ExampleValidZone() {
+func ExampleZone() {
 	// A valid zone
 	var zone Zone
 	zone.Serial = "1234"
