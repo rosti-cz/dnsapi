@@ -34,5 +34,5 @@ jobs:
             apt-get install -q -y automake
             #cd $HOME/go/src/repo
             cd $HOME/go/src/repo
+            make vet
             make test
-
