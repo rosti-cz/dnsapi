@@ -3,6 +3,8 @@ package main
 import (
 	"github.com/kelseyhightower/envconfig"
 	"log"
+	"github.com/labstack/echo"
+	"github.com/labstack/echo/middleware"
 )
 
 var config Config
@@ -22,19 +24,29 @@ func init() {
 func main() {
 	log.Println(config)
 
-	var zone Zone
-	zone.AddRecord("@", 300, "A", 0, "1.2.3.4")
-	zone.AddRecord("@", 300, "AAAA", 0, "2001::2")
-	zone.AddRecord("www", 300, "CNAME", 0, "@")
-	zone.AddRecord("@", 300, "MX", 10, "mail.rosti.cz.")
-	zone.AddRecord("@", 300, "TXT", 0, "igeeweofeiroomoogokieghaithohthaechoocherohveehiebawuyeixeecoveegoeyohfachainauquaeceetipheivubohmoegheizeelaiquanaokooquiedokaidurahveehoshazaseveitheiyitachudiishaeghaexoovachacaijuyiedeochojingafeexusuquaingeiboovachahlaechahcashoophairohthaghobahjaixieboteixameimohmaedahriebaekoshohpeecueyaoseeveibavaithohquaevoalohreingewiesaijiojiehielahzaelohpechuohiefaeyaetiegengahgatheefaipeimeeviedimibohmoyajefahghaaraehieyiepameegheathaechielixahbeidohyaitionahjaenoshikahbahyaebeachahxalaeghuloochaekuthaiquaedoo")
+	// Echo instance
+	e := echo.New()
 
-	errs := zone.Validate()
-	if len(errs) > 0 {
-		for _, err := range errs {
-			log.Println(err)
-		}
-	} else {
-		log.Println(zone.Render())
-	}
+	// Middleware
+	e.Use(middleware.Logger())
+
+	// Routes
+	e.GET("/zones/", GetZonesHandler) // List of zone
+	e.GET("/zones/:zone_id", nil) // Get one zone
+	e.POST("/zones/", nil) // New zone
+	e.DELETE("/zones/:zone_id", nil) // Delete zone
+	e.PUT("/zones/:zone_id", nil) // Update zone
+
+	e.GET("/zones/:zone_id/records/", nil) // List of records
+	e.GET("/zones/:zone_id/records/:record_id", nil) // Get record
+	e.POST("/zones/:zone_id/records/", nil) // New record
+	e.DELETE("/zones/:zone_id/records/:record_id", nil) // Delete record
+	e.PUT("/zones/:zone_id/records/:record_id", nil) // Update record
+
+	e.GET("/export/", nil) // Export all data
+	e.POST("/import/", nil) // Import all data
+
+	// Start server
+	e.Logger.Print("http://localhost:1323")
+	e.Logger.Fatal(e.Start(":1323"))
 }

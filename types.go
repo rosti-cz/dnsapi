@@ -6,26 +6,42 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Record struct
 
 type Record struct {
-	Name  string
-	TTL   int
-	Type  string // A, AAAA, CNAME, TXT, SRV
-	Prio  int
-	Value string
+	ID        uint       `json:"id" gorm:"primary_key"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+
+	ZoneId uint `json:"-" sql:"index"`
+
+	Name  string `json:"name"`
+	TTL   int    `json:"ttl"`
+	Type  string `json:"type"` // A, AAAA, CNAME, TXT, SRV
+	Prio  int    `json:"prio"`
+	Value string `json:"value"`
 }
 
 // Validates the record
 func (r *Record) Validate() error {
-	// TODO test name
+	// Test name
+	matched, err := regexp.MatchString(`[a-z\.0-9@\-]{1,64}`, r.Value)
+	if err != nil {
+		panic(err)
+	}
+	if !matched {
+		return errors.New(r.Type + " " + r.Name + ": name of the record is not in valid format")
+	}
 
+	// Test TTL
 	if r.TTL < 60 || r.TTL > 2592000 {
 		return errors.New(r.Type + " " + r.Name + ": TTL has to be number between 60 and 2592000")
 	}
 
+	// Test the rest
 	if r.Type == "A" {
 		parsed := net.ParseIP(r.Value)
 
@@ -39,7 +55,7 @@ func (r *Record) Validate() error {
 			return errors.New(r.Type + " " + r.Name + ": IP address of AAAA record is not valid")
 		}
 	} else if r.Type == "CNAME" {
-		matched, err := regexp.MatchString(`[a-z\.0-9@]{1,64}`, r.Value)
+		matched, err := regexp.MatchString(`[a-z\.0-9@\-]{1,64}`, r.Value)
 		if err != nil {
 			panic(err)
 		}
@@ -103,10 +119,15 @@ func (r *Record) Render() string {
 // Zone struct
 
 type Zone struct {
-	Serial     string
-	Records    []Record
-	Tags       []string
-	AbuseEmail string
+	ID        uint       `json:"id" gorm:"primary_key"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+
+	Domain     string   `json:"domain" sql:"index"`
+	Serial     string   `json:"serial"`
+	Records    []Record `json:"records" gorm:"foreignkey:ZoneID"`
+	Tags       []string `json:"tags"`
+	AbuseEmail string   `json:"abuse_email"`
 }
 
 func (z *Zone) RenderAbuseEmail() string {
