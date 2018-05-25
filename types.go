@@ -126,8 +126,26 @@ type Zone struct {
 	Domain     string   `json:"domain" sql:"index"`
 	Serial     string   `json:"serial"`
 	Records    []Record `json:"records" gorm:"foreignkey:ZoneID"`
-	Tags       []string `json:"tags"`
+	Tags       string   `json:"tags"`
 	AbuseEmail string   `json:"abuse_email"`
+}
+
+func (z *Zone) SetNewSerial() {
+	today := time.Now().UTC().Format("20060102")
+
+	if z.Serial == "" || len(z.Serial) != 12 {
+		z.Serial = today + "0001"
+	} else {
+		if today == z.Serial[0:8] {
+			number, err := strconv.Atoi(z.Serial[8:12])
+			if err != nil {
+				panic(err)
+			}
+			z.Serial = today + strconv.Itoa(number + 1)
+		} else {
+			z.Serial = today + "0001"
+		}
+	}
 }
 
 func (z *Zone) RenderAbuseEmail() string {
@@ -138,8 +156,13 @@ func (z *Zone) RenderAbuseEmail() string {
 	}
 }
 
-func (z *Zone) AddRecord(name string, ttl int, recordType string, prio int, value string) []error {
+func (z *Zone) AddRecord(name string, ttl int, recordType string, prio int, value string) (*Record, []error) {
+	if z.ID == 0 {
+		return nil, []error{errors.New("zone is not saved")}
+	}
+
 	var record = Record{
+		ZoneId: z.ID,
 		Name:  name,
 		TTL:   ttl,
 		Type:  recordType,
@@ -149,7 +172,7 @@ func (z *Zone) AddRecord(name string, ttl int, recordType string, prio int, valu
 
 	z.Records = append(z.Records, record)
 
-	return z.Validate()
+	return &record, z.Validate()
 }
 
 // Validates records in the zone

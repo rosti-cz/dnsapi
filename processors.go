@@ -1,10 +1,57 @@
 package main
 
+import "strings"
+
 // Create a new zone
-func NewZone(domain string, tags []string, abuseEmail string) {}
+func NewZone(domain string, tags []string, abuseEmail string) []error {
+	zone := Zone{
+		Domain: domain,
+		Tags: strings.Join(tags, ","),
+		AbuseEmail: abuseEmail,
+	}
+	zone.SetNewSerial()
+
+	errs := zone.Validate()
+	if len(errs) > 0 {
+		return errs
+	}
+
+	db := GetDatabaseConnection()
+	db.NewRecord(&zone)
+	err := db.Create(&zone).Error
+	if err != nil {
+		return []error{err}
+	}
+
+	return nil
+}
 
 // Update existing zone
-func UpdateZone(zoneId uint, tags[]string, abuseEmail string) {}
+func UpdateZone(zoneId uint, tags[]string, abuseEmail string) []error {
+	var zone Zone
+
+	db := GetDatabaseConnection()
+	err := db.Where("id = ?", zoneId).Find(&zone).Error
+	if err != nil {
+		return []error{err}
+	}
+
+	zone.Tags = strings.Join(tags, ",")
+	zone.AbuseEmail = abuseEmail
+	zone.SetNewSerial()
+
+	errs := zone.Validate()
+	if len(errs) > 0 {
+		return errs
+	}
+
+	err = db.Update(&zone).Error
+	if err != nil {
+		return []error{err}
+	}
+
+	return nil
+}
 
 // Delete existing zone
 func DeleteZone(zoneId uint) error {
@@ -30,10 +77,70 @@ func DeleteZone(zoneId uint) error {
 
 
 // Create a new record
-func NewRecord(zoneId uint, name string, ttl int, recordType string, prio int, value string) {}
+func NewRecord(zoneId uint, name string, ttl int, recordType string, prio int, value string) []error {
+	var zone Zone
+
+	db := GetDatabaseConnection()
+	err := db.Where("id = ?", zoneId).Find(&zone).Error
+	if err != nil {
+		return []error{err}
+	}
+
+	record, errs := zone.AddRecord(name, ttl, recordType, prio, value)
+	if len(errs) > 0 {
+		return errs
+	}
+
+	err = db.Create(record).Error
+	if err != nil {
+		return []error{err}
+	}
+
+	return nil
+}
 
 // Update existing record
-func UpdateRecord(recordId uint, name string, ttl int, prio int, value string) {}
+func UpdateRecord(recordId uint, name string, ttl int, prio int, value string) []error {
+	var record Record
+	var zone Zone
+
+	db := GetDatabaseConnection()
+	err := db.Where("id = ?", recordId).Find(&record).Error
+	if err != nil {
+		return []error{err}
+	}
+
+	err = db.Where("id = ?", record.ZoneId).Find(&zone).Error
+	if err != nil {
+		return []error{err}
+	}
+
+	zone.SetNewSerial()
+	record.Name = name
+	record.TTL = ttl
+	record.Prio = prio
+	record.Value = value
+
+	errs := zone.Validate()
+	if len(errs) > 0 {
+		return errs
+	}
+
+	tx := db.Begin()
+	err = tx.Update(&zone).Error
+	if err != nil {
+		tx.Rollback()
+		return []error{err}
+	}
+	err = tx.Update(&record).Error
+	if err != nil {
+		tx.Rollback()
+		return []error{err}
+	}
+	tx.Commit()
+
+	return nil
+}
 
 // Delete existing record
 func DeleteRecord(recordId uint) error {

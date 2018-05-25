@@ -14,12 +14,15 @@ var config Config
 var dbConnection *gorm.DB
 
 func GetDatabaseConnection() *gorm.DB {
-	if dbConnection != nil {
-		db, err := gorm.Open("sqlite3", "/tmp/gorm.db")
+	if dbConnection == nil {
+		db, err := gorm.Open("sqlite3", "gorm.db")
 
 		if err != nil {
 			log.Fatalln(err)
 		}
+
+		db.AutoMigrate(&Zone{})
+		db.AutoMigrate(&Record{})
 
 		dbConnection = db
 	}
