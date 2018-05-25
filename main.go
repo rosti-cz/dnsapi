@@ -5,9 +5,27 @@ import (
 	"log"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
+	"github.com/jinzhu/gorm"
+	_ "github.com/jinzhu/gorm/dialects/sqlite"
 )
 
 var config Config
+
+var dbConnection *gorm.DB
+
+func GetDatabaseConnection() *gorm.DB {
+	if dbConnection != nil {
+		db, err := gorm.Open("sqlite3", "/tmp/gorm.db")
+
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		dbConnection = db
+	}
+
+	return dbConnection
+}
 
 func init() {
 	err := envconfig.Process("DNSAPI", &config)
@@ -22,6 +40,10 @@ func init() {
 }
 
 func main() {
+	// Database stuff
+	db := GetDatabaseConnection()
+	defer db.Close()
+
 	log.Println(config)
 
 	// Echo instance
