@@ -6,25 +6,32 @@ import (
 )
 
 const (
-	PRIMARY_ZONE_PATH = "/etc/bind/zones"
-	PRIMARY_BIND_CONFIG_PATH = "/etc/bind/named.rosti.conf"
-	SECONDARY_BIND_CONFIG_PATH = "/etc/bind/named.rosti.conf"
+	// Where zones are saved in bind's config directory
+	PrimaryZonePath = "/etc/bind/zones"
+	// Where bind's configuration is saved in bind's directory (master)
+	PrimaryBindConfigPath = "/etc/bind/named.rosti.conf"
+	// Where bind's configuration is saved in bind's directory (slave)
+	SecondaryBindConfigPath = "/etc/bind/named.rosti.conf"
 )
 
+// Configuration struct. All input form the maintainer is available through this struct.
 type Config struct {
-	PrimaryNameServerIP string   `split_words:"true"`
-	SecondaryNameServerIPs []string   `split_words:"true"`
-	PrimaryNameServer string   `split_words:"true"`
-	NameServers       []string `split_words:"true"`
-	AbuseEmail        string   `split_words:"true"`
-	TimeToRefresh     int      `default:"300" split_words:"true"`
-	TimeToRetry       int      `default:"180" split_words:"true"`
-	TimeToExpire      int      `default:"604800" split_words:"true"`
-	MinimalTTL        int      `default:"30" split_words:"true"`
-	TTL               int      `default:"3600"`
-	DatabasePath      string   `default:"gorm.sqlite"`
+	PrimaryNameServerIP    string   `split_words:"true"`                  // If not set, automatically resolved from PrimaryNameServer
+	SecondaryNameServerIPs []string `split_words:"true"`                  // If not set, automatically resolved from NameServers
+	PrimaryNameServer      string   `split_words:"true"`                  // Bind's master server
+	NameServers            []string `split_words:"true"`                  // Bind's slave servers
+	AbuseEmail             string   `split_words:"true"`                  // Abuse email
+	TimeToRefresh          int      `default:"300" split_words:"true"`    // Time to refresh the records on slaves
+	TimeToRetry            int      `default:"180" split_words:"true"`    // Time to waif for another try if connection fails
+	TimeToExpire           int      `default:"604800" split_words:"true"` // Time to expire when the domain is not available on master
+	MinimalTTL             int      `default:"30" split_words:"true"`     // Minimal TTL
+	TTL                    int      `default:"3600"`                      // Default TTL
+	DatabasePath           string   `default:"gorm.sqlite"`               // Path to the database
+	SSHKey                 string   `split_words:"yes"`                   // SSH key used for set Bind's config files
+	SSHUser                string   `default:"root" split_words:"yes"`    // SSH user used for saving config files
 }
 
+// Validates data inside the config struct
 func (c *Config) Validate() error {
 	if c.PrimaryNameServer == "" {
 		return errors.New("DNSAPI_PRIMARY_NAME_SERVER has to be defined")
@@ -36,16 +43,10 @@ func (c *Config) Validate() error {
 		return errors.New("DNSAPI_ABUSE_EMAIL has to be defined and contains a valid email address")
 	}
 
-	if c.PrimaryNameServerIP == "" {
-		return errors.New("DNSAPI_PRIMARY_NAME_SERVER_IP has to be defined")
-	}
-	if len(c.SecondaryNameServerIPs) == 0 {
-		return errors.New("DNSAPI_SECONDARY_NAME_SERVER_IPS has to be defined and contains at least one server")
-	}
-
 	return nil
 }
 
+// Reformat the email so it can be used in zone files
 func (c *Config) RenderEmail() string {
 	return strings.Replace(c.AbuseEmail, "@", ".", -1)
 }

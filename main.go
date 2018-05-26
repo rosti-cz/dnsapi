@@ -3,10 +3,12 @@ package main
 import (
 	"github.com/kelseyhightower/envconfig"
 	"log"
-	"github.com/labstack/echo"
-	"github.com/labstack/echo/middleware"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
+	"net"
+	"github.com/labstack/echo"
+	"github.com/labstack/echo/middleware"
+	"errors"
 )
 
 var config Config
@@ -42,8 +44,48 @@ func FetchConfigData() {
 	}
 }
 
+// If necessary, this takes PrimaryNameServer and NameServers domain names and resolves IP addresses for
+// PrimaryNameServerIP and SecondaryNameServerIPs. Panic in case of fire!
+func SetNameServerIPs() {
+	if config.PrimaryNameServerIP == "" {
+		ips, err := net.LookupIP(config.PrimaryNameServer)
+		if err != nil {
+			panic(err)
+		}
+
+		for _, ip := range ips {
+			config.PrimaryNameServerIP = ip.String()
+			break
+		}
+	}
+	if len(config.SecondaryNameServerIPs) == 0 {
+		for _, secondaryNameServer := range config.NameServers {
+			if secondaryNameServer == config.PrimaryNameServer {
+				continue
+			}
+
+			ips, err := net.LookupIP(config.PrimaryNameServer)
+			if err != nil {
+				panic(err)
+			}
+
+			for _, ip := range ips {
+				config.SecondaryNameServerIPs = append(config.SecondaryNameServerIPs, ip.String())
+			}
+		}
+	}
+
+	if config.PrimaryNameServerIP == "" {
+		panic(errors.New("PrimaryNameServerIP is not set and can't be resolved"))
+	}
+	if len(config.SecondaryNameServerIPs) == 0 {
+		panic(errors.New("SecondaryNameServerIPs is not set and can't be resolved"))
+	}
+}
+
 func main() {
 	FetchConfigData()
+	SetNameServerIPs()
 
 	// Database stuff
 	db := GetDatabaseConnection()
