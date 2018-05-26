@@ -30,7 +30,7 @@ func GetDatabaseConnection() *gorm.DB {
 	return dbConnection
 }
 
-func init() {
+func FetchConfigData() {
 	err := envconfig.Process("DNSAPI", &config)
 	if err != nil {
 		log.Fatal(err.Error())
@@ -43,6 +43,8 @@ func init() {
 }
 
 func main() {
+	FetchConfigData()
+
 	// Database stuff
 	db := GetDatabaseConnection()
 	defer db.Close()

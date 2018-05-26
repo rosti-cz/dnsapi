@@ -12,6 +12,12 @@ const TEST_ABUSE_EMAIL = "t@ohphiuhi.txt"
 
 func TestMain(m *testing.M) {
 	config.DatabasePath = "/tmp/dnsapi_test_database.sqlite"
+	config.PrimaryNameServer = "ns1.rosti.cz"
+	config.NameServers = []string{
+		"ns1.rosti.cz",
+		"ns2.rosti.cz",
+	}
+	config.AbuseEmail = "cx@initd.cz"
 
 	db := GetDatabaseConnection()
 	defer db.Close()
