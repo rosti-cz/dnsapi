@@ -5,6 +5,12 @@ import (
 	"strings"
 )
 
+const (
+	PRIMARY_ZONE_PATH = "/etc/bind/zones"
+	PRIMARY_BIND_CONFIG_PATH = "/etc/bind/named.rosti.conf"
+	SECONDARY_BIND_CONFIG_PATH = "/etc/bind/named.rosti.conf"
+)
+
 type Config struct {
 	PrimaryNameServerIP string   `split_words:"true"`
 	SecondaryNameServerIPs []string   `split_words:"true"`

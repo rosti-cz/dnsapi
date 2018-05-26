@@ -2,6 +2,7 @@ package main
 
 import (
 	"strings"
+	"log"
 )
 
 // Create a new zone
@@ -157,6 +158,31 @@ func DeleteRecord(recordId uint) error {
 }
 
 // Write new zone into DNS servers
-func Commit(zoneId uint) {
+func Commit(zoneId uint) error {
+	var zones []Zone // all zones
+	var zone Zone // updating zone
 
+	db := GetDatabaseConnection()
+	err := db.Where("id = ?", zoneId).Find(&zone).Error
+	if err != nil {
+		return err
+	}
+
+	err = db.Find(&zones).Error
+	if err != nil {
+		return err
+	}
+
+	var zoneConfig = zone.Render()
+	var allZonesConfig string
+	for _, zone := range zones {
+		allZonesConfig += zone.Render()
+	}
+
+	// TODO: Save zone
+	log.Println(zoneConfig)
+	// TODO: Save named config
+	log.Println(allZonesConfig)
+
+	return nil
 }
