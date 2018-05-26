@@ -18,6 +18,8 @@ func TestMain(m *testing.M) {
 		"ns2.rosti.cz",
 	}
 	config.AbuseEmail = "cx@initd.cz"
+	config.PrimaryNameServerIP = "1.2.3.4"
+	config.SecondaryNameServerIPs = []string{"5.6.7.8"}
 
 	db := GetDatabaseConnection()
 	defer db.Close()

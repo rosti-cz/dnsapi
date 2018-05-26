@@ -6,6 +6,8 @@ import (
 )
 
 type Config struct {
+	PrimaryNameServerIP string   `split_words:"true"`
+	SecondaryNameServerIPs []string   `split_words:"true"`
 	PrimaryNameServer string   `split_words:"true"`
 	NameServers       []string `split_words:"true"`
 	AbuseEmail        string   `split_words:"true"`
@@ -22,10 +24,17 @@ func (c *Config) Validate() error {
 		return errors.New("DNSAPI_PRIMARY_NAME_SERVER has to be defined")
 	}
 	if len(c.NameServers) < 2 {
-		return errors.New("DNSAPI_NAME_SERVER has to be defined and contained at least two servers")
+		return errors.New("DNSAPI_NAME_SERVER has to be defined and contains at least two servers")
 	}
 	if c.AbuseEmail == "" || !strings.Contains(c.AbuseEmail, "@") || !strings.Contains(c.AbuseEmail, ".") {
-		return errors.New("DNSAPI_ABUSE_EMAIL has to be defined and contained a valid email address")
+		return errors.New("DNSAPI_ABUSE_EMAIL has to be defined and contains a valid email address")
+	}
+
+	if c.PrimaryNameServerIP == "" {
+		return errors.New("DNSAPI_PRIMARY_NAME_SERVER_IP has to be defined")
+	}
+	if len(c.SecondaryNameServerIPs) == 0 {
+		return errors.New("DNSAPI_SECONDARY_NAME_SERVER_IPS has to be defined and contains at least one server")
 	}
 
 	return nil

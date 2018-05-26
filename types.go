@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"text/template"
+	"bytes"
 )
 
 // Record struct
@@ -244,4 +246,63 @@ func (z *Zone) Render() string {
 	}
 
 	return zone
+}
+
+func (z *Zone) RenderPrimary() string {
+	primaryTemplate := `zone "{{ .Domain }}" IN {
+        type master;
+        file "zones/{{ .Domain }}.zone";
+        allow-query { any; };
+        allow-transfer { {{ .AllowTransfer}} };
+        notify yes;
+};
+`
+
+	tmpl, err := template.New("").Parse(primaryTemplate)
+	if err != nil {
+		panic(err)
+	}
+
+	var buf bytes.Buffer
+	err = tmpl.Execute(&buf, struct {
+		Domain string
+		AllowTransfer string
+	}{
+		Domain: z.Domain,
+		AllowTransfer: strings.Join(config.SecondaryNameServerIPs, "; "),
+	})
+
+	if err != nil {
+		panic(err)
+	}
+
+	return string(buf.Bytes())
+}
+
+func (z *Zone) RenderSecondary() string {
+	secondaryTemplate := `zone "{{ .Domain }}" IN {
+    type slave;
+    file "zones/{{ .Domain }}.zone";
+    allow-query { any; };
+    masters { {{ .Masters }} };
+};`
+	tmpl, err := template.New("").Parse(secondaryTemplate)
+	if err != nil {
+		panic(err)
+	}
+
+	var buf bytes.Buffer
+	err = tmpl.Execute(&buf, struct {
+		Domain string
+		Masters string
+	}{
+		Domain: z.Domain,
+		Masters: config.PrimaryNameServerIP,
+	})
+
+	if err != nil {
+		panic(err)
+	}
+
+	return string(buf.Bytes())
 }
