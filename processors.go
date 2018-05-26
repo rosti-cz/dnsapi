@@ -48,7 +48,9 @@ func UpdateZone(zoneId uint, tags[]string, abuseEmail string) []error {
 		return errs
 	}
 
-	err = db.Update(&zone).Error
+	err = db.Model(&zone).Update("tags", zone.Tags).
+		Update("abuse_email", zone.AbuseEmail).
+		Update("serial", zone.Serial).Error
 	if err != nil {
 		return []error{err}
 	}
@@ -130,12 +132,15 @@ func UpdateRecord(recordId uint, name string, ttl int, prio int, value string) [
 	}
 
 	tx := db.Begin()
-	err = tx.Update(&zone).Error
+	err = tx.Model(&zone).Update("serial", zone.Serial).Error
 	if err != nil {
 		tx.Rollback()
 		return []error{err}
 	}
-	err = tx.Update(&record).Error
+	err = tx.Model(&record).Update("name", name).
+		Update("ttl", ttl).
+		Update("prio", prio).
+		Update("value", value).Error
 	if err != nil {
 		tx.Rollback()
 		return []error{err}
