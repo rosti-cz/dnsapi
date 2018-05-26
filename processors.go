@@ -1,9 +1,11 @@
 package main
 
-import "strings"
+import (
+	"strings"
+)
 
 // Create a new zone
-func NewZone(domain string, tags []string, abuseEmail string) []error {
+func NewZone(domain string, tags []string, abuseEmail string) (*Zone, []error) {
 	zone := Zone{
 		Domain: domain,
 		Tags: strings.Join(tags, ","),
@@ -13,17 +15,17 @@ func NewZone(domain string, tags []string, abuseEmail string) []error {
 
 	errs := zone.Validate()
 	if len(errs) > 0 {
-		return errs
+		return &zone, errs
 	}
 
 	db := GetDatabaseConnection()
 	db.NewRecord(&zone)
 	err := db.Create(&zone).Error
 	if err != nil {
-		return []error{err}
+		return &zone, []error{err}
 	}
 
-	return nil
+	return &zone, nil
 }
 
 // Update existing zone
@@ -77,26 +79,26 @@ func DeleteZone(zoneId uint) error {
 
 
 // Create a new record
-func NewRecord(zoneId uint, name string, ttl int, recordType string, prio int, value string) []error {
+func NewRecord(zoneId uint, name string, ttl int, recordType string, prio int, value string) (*Record, []error) {
 	var zone Zone
 
 	db := GetDatabaseConnection()
 	err := db.Where("id = ?", zoneId).Find(&zone).Error
 	if err != nil {
-		return []error{err}
+		return nil, []error{err}
 	}
 
 	record, errs := zone.AddRecord(name, ttl, recordType, prio, value)
 	if len(errs) > 0 {
-		return errs
+		return nil, errs
 	}
 
 	err = db.Create(record).Error
 	if err != nil {
-		return []error{err}
+		return record, []error{err}
 	}
 
-	return nil
+	return record, nil
 }
 
 // Update existing record

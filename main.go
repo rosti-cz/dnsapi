@@ -15,7 +15,7 @@ var dbConnection *gorm.DB
 
 func GetDatabaseConnection() *gorm.DB {
 	if dbConnection == nil {
-		db, err := gorm.Open("sqlite3", "gorm.db")
+		db, err := gorm.Open("sqlite3", config.DatabasePath)
 
 		if err != nil {
 			log.Fatalln(err)

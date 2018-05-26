@@ -20,7 +20,7 @@ func ExampleZone() {
 	h := sha256.New()
 	h.Write([]byte(renderedZone))
 	fmt.Printf("%x", h.Sum(nil))
-	// Output: 387674f52e051546345024d9ec5ff12871e3a2d521ef44ecfe5ecab9deffda80
+	// Output: 5af2f3b00762bf5aa1ca347cecd315967c6c13fe4422620a2085239d77541414
 }
 
 
@@ -59,7 +59,13 @@ func TestValidZone(t *testing.T) {
 
 func TestInvalidZone(t *testing.T) {
 	// A valid zone
-	var zone Zone
+	var zone *Zone
+
+	zone, errs := NewZone(TEST_DOMAIN, []string{"test_tag_1", "test_tag_2"}, TEST_ABUSE_EMAIL)
+	if len(errs) != 0 {
+		t.Error(errs)
+	}
+
 	zone.AddRecord("@", 300, "A", 0, "1.2.3.a") // Invalid IPv4
 	zone.AddRecord("@", 300, "AAAA", 0, "2001::g") // Invalid IPv6
 	zone.AddRecord("www", 300, "A", 0, "1.2.3.4") // Valid A record
@@ -70,9 +76,9 @@ func TestInvalidZone(t *testing.T) {
 	zone.AddRecord("@", 300, "UNKNOWN", 0, "mail.rosti.cz.") // invalid record type
 	zone.AddRecord("@", 300, "TXT", 0, "\"igeeweofeiroomoogokieghaithohthaechoocherohveehiebawuyeixeecoveegoeyohfachainauquaeceetipheivubohmoegheizeelaiquanaokooquiedokaidurahveehoshazaseveitheiyitachudiishaeghaexoovachacaijuyiedeochojingafeexusuquaingeiboovachahlaechahcashoophairohthaghobahjaixieboteixameimohmaedahriebaekoshohpeecueyaoseeveibavaithohquaevoalohreingewiesaijiojiehielahzaelohpechuohiefaeyaetiegengahgatheefaipeimeeviedimibohmoyajefahghaaraehieyiepameegheathaechielixahbeidohyaitionahjaenoshikahbahyaebeachahxalaeghuloochaekuthaiquaedoo")
 
-	errs := zone.Validate()
+	errs = zone.Validate()
 	// TODO: check exact errors
 	if len(errs) != 8 {
-		t.Error("Not right amount of errors were generated")
+		t.Error("Not right amount of errors were generated", errs)
 	}
 }

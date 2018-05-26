@@ -14,6 +14,7 @@ type Config struct {
 	TimeToExpire      int      `default:"604800" split_words:"true"`
 	MinimalTTL        int      `default:"30" split_words:"true"`
 	TTL               int      `default:"3600"`
+	DatabasePath      string   `default:"gorm.sqlite"`
 }
 
 func (c *Config) Validate() error {
