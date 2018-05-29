@@ -101,9 +101,9 @@ func main() {
 
 	// Routes
 	e.GET("/zones/", GetZonesHandler) // List of zone
-	e.GET("/zones/:zone_id", nil) // Get one zone
-	e.POST("/zones/", nil) // New zone
-	e.DELETE("/zones/:zone_id", nil) // Delete zone
+	e.GET("/zones/:zone_id", GetZoneHandler) // Get one zone
+	e.POST("/zones/", NewZoneHandler) // New zone
+	e.DELETE("/zones/:zone_id", DeleteZoneHandler) // Delete zone
 	e.PUT("/zones/:zone_id", nil) // Update zone
 
 	e.GET("/zones/:zone_id/records/", nil) // List of records

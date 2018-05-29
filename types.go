@@ -128,7 +128,7 @@ type Zone struct {
 	Domain     string   `json:"domain" sql:"index"`
 	Serial     string   `json:"serial"`
 	Records    []Record `json:"records" gorm:"foreignkey:ZoneID"`
-	Tags       string   `json:"tags"`
+	Tags       string   `json:"tags"` // Tags separated by comma
 	AbuseEmail string   `json:"abuse_email"`
 }
 
