@@ -19,12 +19,13 @@ func ExampleZone() {
 	zone.AddRecord("www", 300, "CNAME", 0, "@")
 	zone.AddRecord("@", 300, "MX", 10, "mail.rosti.cz.")
 	zone.AddRecord("@", 300, "TXT", 0, "igeeweofeiroomoogokieghaithohthaechoocherohveehiebawuyeixeecoveegoeyohfachainauquaeceetipheivubohmoegheizeelaiquanaokooquiedokaidurahveehoshazaseveitheiyitachudiishaeghaexoovachacaijuyiedeochojingafeexusuquaingeiboovachahlaechahcashoophairohthaghobahjaixieboteixameimohmaedahriebaekoshohpeecueyaoseeveibavaithohquaevoalohreingewiesaijiojiehielahzaelohpechuohiefaeyaetiegengahgatheefaipeimeeviedimibohmoyajefahghaaraehieyiepameegheathaechielixahbeidohyaitionahjaenoshikahbahyaebeachahxalaeghuloochaekuthaiquaedoo")
+	zone.Serial = "201805300001"
 	renderedZone := zone.Render()
 
 	h := sha256.New()
 	h.Write([]byte(renderedZone))
 	fmt.Printf("%x", h.Sum(nil))
-	// Output: 372f2dfbcd7f7c733177298788d41b73c196106b0803cf3ec97cf4fd78098201
+	// Output: 29100887d2a05dddcdfd49391ebed51fd487fc6df565ee2b70302d7d1bf2bc78
 }
 
 func ExampleZone_RenderPrimary() {

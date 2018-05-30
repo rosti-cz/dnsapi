@@ -30,13 +30,13 @@ func NewZone(domain string, tags []string, abuseEmail string) (*Zone, []error) {
 }
 
 // Update existing zone
-func UpdateZone(zoneId uint, tags[]string, abuseEmail string) []error {
+func UpdateZone(zoneId uint, tags[]string, abuseEmail string) (*Zone, []error) {
 	var zone Zone
 
 	db := GetDatabaseConnection()
 	err := db.Where("id = ?", zoneId).Find(&zone).Error
 	if err != nil {
-		return []error{err}
+		return nil, []error{err}
 	}
 
 	zone.Tags = strings.Join(tags, ",")
@@ -45,17 +45,22 @@ func UpdateZone(zoneId uint, tags[]string, abuseEmail string) []error {
 
 	errs := zone.Validate()
 	if len(errs) > 0 {
-		return errs
+		return nil, errs
 	}
 
 	err = db.Model(&zone).Update("tags", zone.Tags).
 		Update("abuse_email", zone.AbuseEmail).
 		Update("serial", zone.Serial).Error
 	if err != nil {
-		return []error{err}
+		return nil, []error{err}
 	}
 
-	return nil
+	err = db.Where("id = ?", zoneId).Find(&zone).Error
+	if err != nil {
+		return nil, []error{err}
+	}
+
+	return &zone, nil
 }
 
 // Delete existing zone
@@ -105,19 +110,19 @@ func NewRecord(zoneId uint, name string, ttl int, recordType string, prio int, v
 }
 
 // Update existing record
-func UpdateRecord(recordId uint, name string, ttl int, prio int, value string) []error {
+func UpdateRecord(recordId uint, name string, ttl int, prio int, value string) (*Record, []error) {
 	var record Record
 	var zone Zone
 
 	db := GetDatabaseConnection()
 	err := db.Where("id = ?", recordId).Find(&record).Error
 	if err != nil {
-		return []error{err}
+		return nil, []error{err}
 	}
 
 	err = db.Where("id = ?", record.ZoneId).Find(&zone).Error
 	if err != nil {
-		return []error{err}
+		return nil, []error{err}
 	}
 
 	zone.SetNewSerial()
@@ -128,14 +133,14 @@ func UpdateRecord(recordId uint, name string, ttl int, prio int, value string) [
 
 	errs := zone.Validate()
 	if len(errs) > 0 {
-		return errs
+		return nil, errs
 	}
 
 	tx := db.Begin()
 	err = tx.Model(&zone).Update("serial", zone.Serial).Error
 	if err != nil {
 		tx.Rollback()
-		return []error{err}
+		return nil, []error{err}
 	}
 	err = tx.Model(&record).Update("name", name).
 		Update("ttl", ttl).
@@ -143,11 +148,16 @@ func UpdateRecord(recordId uint, name string, ttl int, prio int, value string) [
 		Update("value", value).Error
 	if err != nil {
 		tx.Rollback()
-		return []error{err}
+		return nil, []error{err}
 	}
 	tx.Commit()
 
-	return nil
+	err = db.Where("id = ?", recordId).Find(&record).Error
+	if err != nil {
+		return nil, []error{err}
+	}
+
+	return &record, nil
 }
 
 // Delete existing record

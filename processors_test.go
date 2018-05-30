@@ -1,9 +1,9 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"testing"
+	"fmt"
 )
 
 const TEST_DOMAIN = "ohphiuhi.txt"
@@ -24,12 +24,14 @@ func TestMain(m *testing.M) {
 	db := GetDatabaseConnection()
 	defer db.Close()
 
-	os.Exit(m.Run())
+	code := m.Run()
 
 	err := os.Remove(config.DatabasePath)
 	if err != nil {
 		fmt.Println("Can't remove test database")
 	}
+
+	os.Exit(code)
 }
 
 func TestNewZone(t *testing.T) {
@@ -40,7 +42,7 @@ func TestNewZone(t *testing.T) {
 		t.Error(errs)
 	}
 
-	errs = UpdateZone(zone.ID, []string{"only_one_tag"}, "test@initd.cz")
+	_, errs = UpdateZone(zone.ID, []string{"only_one_tag"}, "test@initd.cz")
 	if len(errs) > 0 {
 		t.Error(errs)
 	}
@@ -61,7 +63,7 @@ func TestNewZone(t *testing.T) {
 		t.Error(errs)
 	}
 
-	errs = UpdateRecord(record.ID, "test2", 600, 0, "1.2.3.5")
+	_, errs = UpdateRecord(record.ID, "test2", 600, 0, "1.2.3.5")
 	if len(errs) > 0 {
 		t.Error(errs)
 	}
@@ -75,9 +77,11 @@ func TestNewZone(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	// TODO: test it's deleted
 
 	err = DeleteZone(updatedZone.ID)
 	if err != nil {
 		t.Error(err)
 	}
+	// TODO: test it's deleted
 }

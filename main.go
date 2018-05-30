@@ -104,13 +104,13 @@ func main() {
 	e.GET("/zones/:zone_id", GetZoneHandler) // Get one zone
 	e.POST("/zones/", NewZoneHandler) // New zone
 	e.DELETE("/zones/:zone_id", DeleteZoneHandler) // Delete zone
-	e.PUT("/zones/:zone_id", nil) // Update zone
+	e.PUT("/zones/:zone_id", UpdateZoneHandler) // Update zone
 
-	e.GET("/zones/:zone_id/records/", nil) // List of records
-	e.GET("/zones/:zone_id/records/:record_id", nil) // Get record
-	e.POST("/zones/:zone_id/records/", nil) // New record
-	e.DELETE("/zones/:zone_id/records/:record_id", nil) // Delete record
-	e.PUT("/zones/:zone_id/records/:record_id", nil) // Update record
+	e.GET("/zones/:zone_id/records/", GetRecordsHandler) // List of records
+	e.GET("/zones/:zone_id/records/:record_id", GetRecordHandler) // Get record
+	e.POST("/zones/:zone_id/records/", NewRecordHandler) // New record
+	e.DELETE("/zones/:zone_id/records/:record_id", DeleteRecordHandler) // Delete record
+	e.PUT("/zones/:zone_id/records/:record_id", UpdateRecordHandler) // Update record
 
 	e.GET("/export/", nil) // Export all data
 	e.POST("/import/", nil) // Import all data
