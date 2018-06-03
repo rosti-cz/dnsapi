@@ -9,9 +9,9 @@ const (
 	// Where zones are saved in bind's config directory
 	PrimaryZonePath = "/etc/bind/zones"
 	// Where bind's configuration is saved in bind's directory (master)
-	PrimaryBindConfigPath = "/etc/bind/named.rosti.conf"
+	PrimaryBindConfigPath = "/etc/bind/named.conf.rosti"
 	// Where bind's configuration is saved in bind's directory (slave)
-	SecondaryBindConfigPath = "/etc/bind/named.rosti.conf"
+	SecondaryBindConfigPath = "/etc/bind/named.conf.rosti"
 )
 
 // Configuration struct. All input form the maintainer is available through this struct.

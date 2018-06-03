@@ -1,20 +1,20 @@
 package main
 
 import (
+	"bytes"
 	"github.com/pkg/errors"
 	"net"
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 	"text/template"
-	"bytes"
+	"time"
 )
 
 // Record struct
 
 type Record struct {
-	ID        uint       `json:"id" gorm:"primary_key"`
+	ID        uint      `json:"id" gorm:"primary_key"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 
@@ -121,7 +121,7 @@ func (r *Record) Render() string {
 // Zone struct
 
 type Zone struct {
-	ID        uint       `json:"id" gorm:"primary_key"`
+	ID        uint      `json:"id" gorm:"primary_key"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 
@@ -143,7 +143,7 @@ func (z *Zone) SetNewSerial() {
 			if err != nil {
 				panic(err)
 			}
-			z.Serial = today + strconv.Itoa(number + 1)
+			z.Serial = today + strconv.Itoa(number+1)
 		} else {
 			z.Serial = today + "0001"
 		}
@@ -165,11 +165,11 @@ func (z *Zone) AddRecord(name string, ttl int, recordType string, prio int, valu
 
 	var record = Record{
 		ZoneId: z.ID,
-		Name:  name,
-		TTL:   ttl,
-		Type:  recordType,
-		Prio:  prio,
-		Value: value,
+		Name:   name,
+		TTL:    ttl,
+		Type:   recordType,
+		Prio:   prio,
+		Value:  value,
 	}
 
 	z.Records = append(z.Records, record)
@@ -251,7 +251,7 @@ func (z *Zone) Render() string {
 func (z *Zone) RenderPrimary() string {
 	primaryTemplate := `zone "{{ .Domain }}" IN {
         type master;
-        file "zones/{{ .Domain }}.zone";
+        file "{{ .Domain }}.zone";
         allow-query { any; };
         allow-transfer { {{ .AllowTransfer}} };
         notify yes;
@@ -265,10 +265,10 @@ func (z *Zone) RenderPrimary() string {
 
 	var buf bytes.Buffer
 	err = tmpl.Execute(&buf, struct {
-		Domain string
+		Domain        string
 		AllowTransfer string
 	}{
-		Domain: z.Domain,
+		Domain:        z.Domain,
 		AllowTransfer: strings.Join(config.SecondaryNameServerIPs, "; "),
 	})
 
@@ -282,7 +282,7 @@ func (z *Zone) RenderPrimary() string {
 func (z *Zone) RenderSecondary() string {
 	secondaryTemplate := `zone "{{ .Domain }}" IN {
     type slave;
-    file "zones/{{ .Domain }}.zone";
+    file "{{ .Domain }}.zone";
     allow-query { any; };
     masters { {{ .Masters }} };
 };`
@@ -293,10 +293,10 @@ func (z *Zone) RenderSecondary() string {
 
 	var buf bytes.Buffer
 	err = tmpl.Execute(&buf, struct {
-		Domain string
+		Domain  string
 		Masters string
 	}{
-		Domain: z.Domain,
+		Domain:  z.Domain,
 		Masters: config.PrimaryNameServerIP,
 	})
 
