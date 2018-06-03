@@ -41,7 +41,7 @@ func ExampleZone_RenderPrimary() {
 	// Output:
 	// zone "ohphiuhi.txt" IN {
 	//         type master;
-	//         file "zones/ohphiuhi.txt.zone";
+	//         file "ohphiuhi.txt.zone";
 	//         allow-query { any; };
 	//         allow-transfer { 5.6.7.8 };
 	//         notify yes;
@@ -61,7 +61,7 @@ func ExampleZone_RenderSecondary() {
 	// Output:
 	// zone "ohphiuhi.txt" IN {
 	//     type slave;
-	//     file "zones/ohphiuhi.txt.zone";
+	//     file "ohphiuhi.txt.zone";
 	//     allow-query { any; };
 	//     masters { 1.2.3.4 };
 	// };
