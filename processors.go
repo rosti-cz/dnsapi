@@ -2,7 +2,7 @@ package main
 
 import (
 	"strings"
-	"log"
+	"path"
 )
 
 // Create a new zone
@@ -188,16 +188,34 @@ func Commit(zoneId uint) error {
 		return err
 	}
 
-	var zoneConfig = zone.Render()
-	var allZonesConfig string
+	var allZonesPrimaryConfig string
+	var allZonesSecondaryConfig string
 	for _, zone := range zones {
-		allZonesConfig += zone.Render()
+		allZonesPrimaryConfig += zone.RenderPrimary()
+		allZonesPrimaryConfig += "\n"
+
+		allZonesSecondaryConfig += zone.RenderSecondary()
+		allZonesSecondaryConfig += "\n"
 	}
 
-	// TODO: Save zone
-	log.Println(zoneConfig)
-	// TODO: Save named config
-	log.Println(allZonesConfig)
+	// Save zone file
+	err = SendFileViaSSH(config.PrimaryNameServer, path.Join(PrimaryZonePath, zone.Domain + ".zone"), zone.Render())
+	if err != nil {
+		return err
+	}
+	// Save master's main config
+	err = SendFileViaSSH(config.PrimaryNameServer, PrimaryBindConfigPath, allZonesPrimaryConfig)
+	if err != nil {
+		return err
+	}
+
+	// Save slaves' main config
+	for _, server := range config.SecondaryNameServerIPs {
+		err = SendFileViaSSH(server, SecondaryBindConfigPath, allZonesSecondaryConfig)
+		if err != nil {
+			return err
+		}
+	}
 
 	return nil
 }

@@ -7,7 +7,7 @@ import (
 
 const (
 	// Where zones are saved in bind's config directory
-	PrimaryZonePath = "/etc/bind/zones"
+	PrimaryZonePath = "/var/cache/bind"
 	// Where bind's configuration is saved in bind's directory (master)
 	PrimaryBindConfigPath = "/etc/bind/named.conf.rosti"
 	// Where bind's configuration is saved in bind's directory (slave)
