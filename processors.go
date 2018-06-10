@@ -3,6 +3,7 @@ package main
 import (
 	"strings"
 	"path"
+	"time"
 )
 
 // Create a new zone
@@ -101,9 +102,23 @@ func NewRecord(zoneId uint, name string, ttl int, recordType string, prio int, v
 		return nil, errs
 	}
 
-	err = db.Create(record).Error
+	zone.SetNewSerial()
+	tx := db.Begin()
+	err = tx.Model(&zone).Update("serial", zone.Serial).Error
 	if err != nil {
+		tx.Rollback()
+		return nil, []error{err}
+	}
+
+	err = tx.Create(record).Error
+	if err != nil {
+		tx.Rollback()
 		return record, []error{err}
+	}
+
+	err = tx.Commit().Error
+	if err != nil {
+		return nil, []error{err}
 	}
 
 	return record, nil
@@ -150,7 +165,11 @@ func UpdateRecord(recordId uint, name string, ttl int, prio int, value string) (
 		tx.Rollback()
 		return nil, []error{err}
 	}
-	tx.Commit()
+
+	err = tx.Commit().Error
+	if err != nil {
+		return nil, []error{err}
+	}
 
 	err = db.Where("id = ?", recordId).Find(&record).Error
 	if err != nil {
@@ -173,6 +192,7 @@ func DeleteRecord(recordId uint) error {
 }
 
 // Write new zone into DNS servers
+// TODO: here is a lot of SSH stuff we can do in parallel
 func Commit(zoneId uint) error {
 	var zones []Zone // all zones
 	var zone Zone // updating zone
@@ -198,6 +218,18 @@ func Commit(zoneId uint) error {
 		allZonesSecondaryConfig += "\n"
 	}
 
+	// Save slaves' main config
+	for _, server := range config.SecondaryNameServerIPs {
+		err = SendFileViaSSH(server, SecondaryBindConfigPath, allZonesSecondaryConfig)
+		if err != nil {
+			return err
+		}
+		_, err = SendCommandViaSSH(server, "systemctl reload bind9")
+		if err != nil {
+			return err
+		}
+	}
+
 	// Save zone file
 	err = SendFileViaSSH(config.PrimaryNameServer, path.Join(PrimaryZonePath, zone.Domain + ".zone"), zone.Render())
 	if err != nil {
@@ -208,14 +240,29 @@ func Commit(zoneId uint) error {
 	if err != nil {
 		return err
 	}
-
-	// Save slaves' main config
-	for _, server := range config.SecondaryNameServerIPs {
-		err = SendFileViaSSH(server, SecondaryBindConfigPath, allZonesSecondaryConfig)
-		if err != nil {
-			return err
-		}
+	_, err = SendCommandViaSSH(config.PrimaryNameServer, "systemctl reload bind9")
+	if err != nil {
+		return err
 	}
+
+	// Force zone refresh a few moments after everything is done
+	go func (config *Config, zone *Zone) {
+		// Wait for 10 second to settle things up
+		time.Sleep(10*time.Second)
+
+		// When reload is done, force to refresh
+		for _, server := range config.SecondaryNameServerIPs {
+			err = SendFileViaSSH(server, SecondaryBindConfigPath, allZonesSecondaryConfig)
+			if err != nil {
+				panic(err)
+			}
+			_, err = SendCommandViaSSH(server, "rndc refresh " + zone.Domain)
+			if err != nil {
+				panic(err)
+			}
+		}
+	}(&config, &zone)
+
 
 	return nil
 }

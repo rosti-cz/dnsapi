@@ -9,6 +9,7 @@ import (
 	"strings"
 	"text/template"
 	"time"
+	"fmt"
 )
 
 // Record struct
@@ -143,9 +144,9 @@ func (z *Zone) SetNewSerial() {
 			if err != nil {
 				panic(err)
 			}
-			z.Serial = today + strconv.Itoa(number+1)
+			z.Serial = today + fmt.Sprintf("%02d", number+1)
 		} else {
-			z.Serial = today + "00"
+			z.Serial = today + "01"
 		}
 	}
 }

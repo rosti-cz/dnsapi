@@ -4,6 +4,7 @@ import (
 	"testing"
 	"fmt"
 	"crypto/sha256"
+	"time"
 )
 
 func ExampleZone() {
@@ -67,6 +68,32 @@ func ExampleZone_RenderSecondary() {
 	//     allow-query { any; };
 	//     masters { 1.2.3.4; };
 	// };
+}
+
+func TestZone_SetNewSerial(t *testing.T) {
+	var zone Zone
+
+	today := time.Now().UTC().Format("20060102")
+
+	zone.SetNewSerial()
+	if zone.Serial != today + "01" {
+		t.Error("Got " + zone.Serial + ", expected "+ today +"01")
+	}
+
+	zone.SetNewSerial()
+	if zone.Serial != today + "02" {
+		t.Error("Got " + zone.Serial + ", expected "+ today +"02")
+	}
+
+	zone.SetNewSerial()
+	if zone.Serial != today + "03" {
+		t.Error("Got " + zone.Serial + ", expected "+ today +"03")
+	}
+
+	zone.SetNewSerial()
+	if zone.Serial != today + "04" {
+		t.Error("Got " + zone.Serial + ", expected "+ today +"04")
+	}
 }
 
 func TestValidZone(t *testing.T) {
