@@ -135,17 +135,17 @@ type Zone struct {
 func (z *Zone) SetNewSerial() {
 	today := time.Now().UTC().Format("20060102")
 
-	if z.Serial == "" || len(z.Serial) != 12 {
-		z.Serial = today + "0001"
+	if z.Serial == "" || len(z.Serial) != 10 {
+		z.Serial = today + "01"
 	} else {
 		if today == z.Serial[0:8] {
-			number, err := strconv.Atoi(z.Serial[8:12])
+			number, err := strconv.Atoi(z.Serial[8:10])
 			if err != nil {
 				panic(err)
 			}
 			z.Serial = today + strconv.Itoa(number+1)
 		} else {
-			z.Serial = today + "0001"
+			z.Serial = today + "00"
 		}
 	}
 }
@@ -251,9 +251,10 @@ func (z *Zone) Render() string {
 func (z *Zone) RenderPrimary() string {
 	primaryTemplate := `zone "{{ .Domain }}" IN {
         type master;
+        masterfile-format text;
         file "{{ .Domain }}.zone";
         allow-query { any; };
-        allow-transfer { {{ .AllowTransfer}} };
+        allow-transfer { {{ .AllowTransfer}}; };
         notify yes;
 };
 `
@@ -282,9 +283,10 @@ func (z *Zone) RenderPrimary() string {
 func (z *Zone) RenderSecondary() string {
 	secondaryTemplate := `zone "{{ .Domain }}" IN {
     type slave;
+    masterfile-format text;
     file "{{ .Domain }}.zone";
     allow-query { any; };
-    masters { {{ .Masters }} };
+    masters { {{ .Masters }}; };
 };`
 	tmpl, err := template.New("").Parse(secondaryTemplate)
 	if err != nil {

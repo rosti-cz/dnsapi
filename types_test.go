@@ -19,13 +19,13 @@ func ExampleZone() {
 	zone.AddRecord("www", 300, "CNAME", 0, "@")
 	zone.AddRecord("@", 300, "MX", 10, "mail.rosti.cz.")
 	zone.AddRecord("@", 300, "TXT", 0, "igeeweofeiroomoogokieghaithohthaechoocherohveehiebawuyeixeecoveegoeyohfachainauquaeceetipheivubohmoegheizeelaiquanaokooquiedokaidurahveehoshazaseveitheiyitachudiishaeghaexoovachacaijuyiedeochojingafeexusuquaingeiboovachahlaechahcashoophairohthaghobahjaixieboteixameimohmaedahriebaekoshohpeecueyaoseeveibavaithohquaevoalohreingewiesaijiojiehielahzaelohpechuohiefaeyaetiegengahgatheefaipeimeeviedimibohmoyajefahghaaraehieyiepameegheathaechielixahbeidohyaitionahjaenoshikahbahyaebeachahxalaeghuloochaekuthaiquaedoo")
-	zone.Serial = "201805300001"
+	zone.Serial = "2018053001"
 	renderedZone := zone.Render()
 
 	h := sha256.New()
 	h.Write([]byte(renderedZone))
 	fmt.Printf("%x", h.Sum(nil))
-	// Output: 29100887d2a05dddcdfd49391ebed51fd487fc6df565ee2b70302d7d1bf2bc78
+	// Output: f6ce5a30a9a900df14340b2198b4f95ae84733781239c388e4c5b8eb30dfdaba
 }
 
 func ExampleZone_RenderPrimary() {
@@ -41,9 +41,10 @@ func ExampleZone_RenderPrimary() {
 	// Output:
 	// zone "ohphiuhi.txt" IN {
 	//         type master;
+	//         masterfile-format text;
 	//         file "ohphiuhi.txt.zone";
 	//         allow-query { any; };
-	//         allow-transfer { 5.6.7.8 };
+	//         allow-transfer { 5.6.7.8; };
 	//         notify yes;
 	// };
 }
@@ -61,9 +62,10 @@ func ExampleZone_RenderSecondary() {
 	// Output:
 	// zone "ohphiuhi.txt" IN {
 	//     type slave;
+	//     masterfile-format text;
 	//     file "ohphiuhi.txt.zone";
 	//     allow-query { any; };
-	//     masters { 1.2.3.4 };
+	//     masters { 1.2.3.4; };
 	// };
 }
 
@@ -84,7 +86,7 @@ func TestValidZone(t *testing.T) {
 
 	// A valid zone with config's email
 	zone = Zone{
-		Serial: "200601020001",
+		Serial: "2006010201",
 		AbuseEmail: "cx@initd.cz",
 	}
 	zone.AddRecord("@", 300, "A", 0, "1.2.3.4")

@@ -6,11 +6,20 @@ import (
 	"github.com/pkg/sftp"
 	"os"
 	"bytes"
+	"io/ioutil"
 )
+
+func loadSSHKey(path string) []byte {
+	content, err := ioutil.ReadFile(path)
+	if err != nil {
+		panic(err)
+	}
+	return content
+}
 
 func sshClient(server string) (*ssh.Client, error) {
 	var authMethods []ssh.AuthMethod
-	signer, err := ssh.ParsePrivateKey([]byte(config.SSHKey))
+	signer, err := ssh.ParsePrivateKey(loadSSHKey(config.SSHKey))
 	if err != nil {
 		return nil, err
 	}

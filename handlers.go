@@ -16,7 +16,7 @@ func GetZonesHandler(c echo.Context) error {
 
 	var zones []Zone
 
-	err := db.Model(&Zone{}).Find(&zones).Error
+	err := db.Model(&Zone{}).Preload("Records").Find(&zones).Error
 	if err != nil {
 		panic(err)
 	}
@@ -31,7 +31,7 @@ func GetZoneHandler(c echo.Context) error {
 
 	var zone Zone
 
-	err := db.Where("id = ?", zoneId).Find(&zone).Error
+	err := db.Where("id = ?", zoneId).Preload("Records").Find(&zone).Error
 	if err != nil {
 		panic(err)
 	}
@@ -94,6 +94,22 @@ func UpdateZoneHandler(c echo.Context) error {
 	return c.JSONPretty(http.StatusOK, zone, "  ")
 }
 
+
+func CommitHandler(c echo.Context) error {
+	var zoneId = c.Param("zone_id")
+
+	zoneIdInt, err := strconv.Atoi(zoneId)
+	if err != nil {
+		panic(err)
+	}
+
+	err = Commit(uint(zoneIdInt))
+	if err != nil {
+		panic(err)
+	}
+
+	return c.JSONPretty(http.StatusOK, map[string]string{"message": "committed"}, "  ")
+}
 
 // ################
 // Records handlers

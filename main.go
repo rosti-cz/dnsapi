@@ -9,6 +9,7 @@ import (
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
 	"errors"
+	"strconv"
 )
 
 var config Config
@@ -91,20 +92,23 @@ func main() {
 	db := GetDatabaseConnection()
 	defer db.Close()
 
-	log.Println(config)
+	log.Println("Loaded configuration:")
+	log.Printf("%+v\n", config)
 
 	// Echo instance
 	e := echo.New()
 
 	// Middleware
+	e.Use(TokenMiddleware)
 	e.Use(middleware.Logger())
 
 	// Routes
 	e.GET("/zones/", GetZonesHandler) // List of zone
 	e.GET("/zones/:zone_id", GetZoneHandler) // Get one zone
 	e.POST("/zones/", NewZoneHandler) // New zone
-	e.DELETE("/zones/:zone_id", DeleteZoneHandler) // Delete zone
-	e.PUT("/zones/:zone_id", UpdateZoneHandler) // Update zone
+	e.DELETE("/zones/:zone_id", DeleteZoneHandler) // Delete the zone
+	e.PUT("/zones/:zone_id", UpdateZoneHandler) // Update the zone
+	e.PUT("/zones/:zone_id/commit", CommitHandler) // Commit the zone
 
 	e.GET("/zones/:zone_id/records/", GetRecordsHandler) // List of records
 	e.GET("/zones/:zone_id/records/:record_id", GetRecordHandler) // Get record
@@ -116,6 +120,6 @@ func main() {
 	e.POST("/import/", nil) // Import all data
 
 	// Start server
-	e.Logger.Print("http://localhost:1323")
-	e.Logger.Fatal(e.Start(":1323"))
+	e.Logger.Print("http://localhost:"+strconv.Itoa(int(config.Port)))
+	e.Logger.Fatal(e.Start(":"+strconv.Itoa(int(config.Port))))
 }

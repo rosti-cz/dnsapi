@@ -55,7 +55,7 @@ func UpdateZone(zoneId uint, tags[]string, abuseEmail string) (*Zone, []error) {
 		return nil, []error{err}
 	}
 
-	err = db.Where("id = ?", zoneId).Find(&zone).Error
+	err = db.Where("id = ?", zoneId).Preload("Records").Find(&zone).Error
 	if err != nil {
 		return nil, []error{err}
 	}
@@ -91,7 +91,7 @@ func NewRecord(zoneId uint, name string, ttl int, recordType string, prio int, v
 	var zone Zone
 
 	db := GetDatabaseConnection()
-	err := db.Where("id = ?", zoneId).Find(&zone).Error
+	err := db.Where("id = ?", zoneId).Preload("Records").Find(&zone).Error
 	if err != nil {
 		return nil, []error{err}
 	}
@@ -120,7 +120,7 @@ func UpdateRecord(recordId uint, name string, ttl int, prio int, value string) (
 		return nil, []error{err}
 	}
 
-	err = db.Where("id = ?", record.ZoneId).Find(&zone).Error
+	err = db.Where("id = ?", record.ZoneId).Preload("Records").Find(&zone).Error
 	if err != nil {
 		return nil, []error{err}
 	}
@@ -178,7 +178,7 @@ func Commit(zoneId uint) error {
 	var zone Zone // updating zone
 
 	db := GetDatabaseConnection()
-	err := db.Where("id = ?", zoneId).Find(&zone).Error
+	err := db.Model(&zone).Where("id = ?", zoneId).Preload("Records").Find(&zone).Error
 	if err != nil {
 		return err
 	}
