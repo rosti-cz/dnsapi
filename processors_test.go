@@ -86,11 +86,18 @@ func TestNewZone(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	// TODO: test it's deleted
-
-	err = DeleteZone(updatedZone.ID)
-	if err != nil {
-		t.Error(err)
+	var count = -1
+	db.Model(&record).Where("id = ?", record.ID).Count(&count)
+	if count != 0 {
+		t.Error("Record still exist")
 	}
-	// TODO: test it's deleted
+
+	//err = DeleteZone(updatedZone.ID)
+	//if err != nil {
+	//	t.Error(err)
+	//}
+	//db.Where("id = ?", zone.ID).Find(&zone)
+	//if zone.Delete != true {
+	//	t.Error("Zone doesn't have delete flag")
+	//}
 }

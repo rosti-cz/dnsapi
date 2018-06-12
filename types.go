@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/pkg/errors"
 	"net"
 	"regexp"
@@ -9,7 +10,6 @@ import (
 	"strings"
 	"text/template"
 	"time"
-	"fmt"
 )
 
 // Record struct
@@ -122,9 +122,10 @@ func (r *Record) Render() string {
 // Zone struct
 
 type Zone struct {
-	ID        uint      `json:"id" gorm:"primary_key"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID         uint      `json:"id" gorm:"primary_key"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
+	Delete     bool      `json:"delete" gorm:"DEFAULT:0"`
 
 	Domain     string   `json:"domain" sql:"index"`
 	Serial     string   `json:"serial"`

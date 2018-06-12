@@ -99,6 +99,9 @@ func main() {
 	e := echo.New()
 
 	// Middleware
+	e.Use(middleware.RecoverWithConfig(middleware.RecoverConfig{
+		StackSize:  4 << 10, // 1 KB
+	}))
 	e.Use(TokenMiddleware)
 	e.Use(middleware.Logger())
 

@@ -5,6 +5,7 @@ import (
 	"github.com/labstack/echo"
 	"strings"
 	"strconv"
+	"github.com/jinzhu/gorm"
 )
 
 // ##############
@@ -105,6 +106,9 @@ func CommitHandler(c echo.Context) error {
 
 	err = Commit(uint(zoneIdInt))
 	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.JSONPretty(http.StatusNotFound, map[string]string{"message": "Zone not found"}, "  ")
+		}
 		panic(err)
 	}
 

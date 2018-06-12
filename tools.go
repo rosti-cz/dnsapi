@@ -106,3 +106,62 @@ func SendCommandViaSSH(server string, command string) (*bytes.Buffer, error) {
 	err = session.Run(command)
 	return &stdouterr, err
 }
+
+func SetSlavesBindConfig() {
+	var zones []Zone // all zones
+
+	db := GetDatabaseConnection()
+
+	err := db.Find(&zones).Error
+	if err != nil {
+		panic(err)
+	}
+
+	// Generate all config files for bind
+	var allZonesSecondaryConfig string
+	for _, zone := range zones {
+		allZonesSecondaryConfig += zone.RenderSecondary()
+		allZonesSecondaryConfig += "\n"
+	}
+
+	for _, server := range config.SecondaryNameServerIPs {
+		go func (server string, bindConfig string){
+			err := SendFileViaSSH(server, SecondaryBindConfigPath, bindConfig)
+			if err != nil {
+				panic(err)
+			}
+			_, err = SendCommandViaSSH(server, "systemctl reload bind9")
+			if err != nil {
+				panic(err)
+			}
+		}(server, allZonesSecondaryConfig)
+	}
+}
+
+func SetMasterBindConfig() {
+	var zones []Zone // all zones
+
+	db := GetDatabaseConnection()
+
+	err := db.Find(&zones).Error
+	if err != nil {
+		panic(err)
+	}
+
+	// Generate all config files for bind
+	var allZonesPrimaryConfig string
+	for _, zone := range zones {
+		allZonesPrimaryConfig += zone.RenderPrimary()
+		allZonesPrimaryConfig += "\n"
+	}
+
+	// Save master's main config
+	err = SendFileViaSSH(config.PrimaryNameServer, PrimaryBindConfigPath, allZonesPrimaryConfig)
+	if err != nil {
+		panic(err)
+	}
+	_, err = SendCommandViaSSH(config.PrimaryNameServer, "systemctl reload bind9")
+	if err != nil {
+		panic(err)
+	}
+}

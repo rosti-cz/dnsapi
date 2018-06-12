@@ -2,8 +2,10 @@ package main
 
 import (
 	"strings"
-	"path"
 	"time"
+	"path"
+	"github.com/pkg/errors"
+	"github.com/jinzhu/gorm"
 )
 
 // Create a new zone
@@ -12,8 +14,8 @@ func NewZone(domain string, tags []string, abuseEmail string) (*Zone, []error) {
 		Domain: domain,
 		Tags: strings.Join(tags, ","),
 		AbuseEmail: abuseEmail,
+		Delete: false,
 	}
-	zone.SetNewSerial()
 
 	errs := zone.Validate()
 	if len(errs) > 0 {
@@ -42,7 +44,6 @@ func UpdateZone(zoneId uint, tags[]string, abuseEmail string) (*Zone, []error) {
 
 	zone.Tags = strings.Join(tags, ",")
 	zone.AbuseEmail = abuseEmail
-	zone.SetNewSerial()
 
 	errs := zone.Validate()
 	if len(errs) > 0 {
@@ -66,22 +67,41 @@ func UpdateZone(zoneId uint, tags[]string, abuseEmail string) (*Zone, []error) {
 
 // Delete existing zone
 func DeleteZone(zoneId uint) error {
+	var zone Zone
+
 	db := GetDatabaseConnection()
+	err := db.Where("id = ?", zoneId).Find(&zone).Error
+	if err != nil {
+		return err
+	}
+
 	tx := db.Begin()
 
-	err := tx.Where("zone_id = ?", zoneId).Delete(&Record{}).Error
+	err = tx.Where("zone_id = ?", zoneId).Delete(&Record{}).Error
 	if err != nil {
 		tx.Rollback()
 		return err
 	}
 
-	err = tx.Where("id = ?", zoneId).Delete(&Zone{}).Error
+	err = tx.Where("id = ?", zoneId).Delete(&zone).Error
 	if err != nil {
 		tx.Rollback()
 		return err
 	}
 
-	tx.Commit()
+	err = tx.Commit().Error
+	if err != nil {
+		return err
+	}
+
+	// Delete the zone file
+	_, err = SendCommandViaSSH(config.PrimaryNameServerIP, "rm -f " + path.Join(PrimaryZonePath, zone.Domain + ".zone"))
+	if err != nil {
+		panic(err)
+	}
+
+	go SetSlavesBindConfig()
+	go SetMasterBindConfig()
 
 	return nil
 }
@@ -92,7 +112,7 @@ func NewRecord(zoneId uint, name string, ttl int, recordType string, prio int, v
 	var zone Zone
 
 	db := GetDatabaseConnection()
-	err := db.Where("id = ?", zoneId).Preload("Records").Find(&zone).Error
+	err := db.Where("id = ?", zoneId).Find(&zone).Error
 	if err != nil {
 		return nil, []error{err}
 	}
@@ -102,23 +122,9 @@ func NewRecord(zoneId uint, name string, ttl int, recordType string, prio int, v
 		return nil, errs
 	}
 
-	zone.SetNewSerial()
-	tx := db.Begin()
-	err = tx.Model(&zone).Update("serial", zone.Serial).Error
+	err = db.Create(record).Error
 	if err != nil {
-		tx.Rollback()
-		return nil, []error{err}
-	}
-
-	err = tx.Create(record).Error
-	if err != nil {
-		tx.Rollback()
 		return record, []error{err}
-	}
-
-	err = tx.Commit().Error
-	if err != nil {
-		return nil, []error{err}
 	}
 
 	return record, nil
@@ -140,7 +146,6 @@ func UpdateRecord(recordId uint, name string, ttl int, prio int, value string) (
 		return nil, []error{err}
 	}
 
-	zone.SetNewSerial()
 	record.Name = name
 	record.TTL = ttl
 	record.Prio = prio
@@ -197,9 +202,13 @@ func Commit(zoneId uint) error {
 	var zones []Zone // all zones
 	var zone Zone // updating zone
 
+	// Get the committing zone and all zones from db
 	db := GetDatabaseConnection()
 	err := db.Model(&zone).Where("id = ?", zoneId).Preload("Records").Find(&zone).Error
 	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return errors.New("Zone not found")
+		}
 		return err
 	}
 
@@ -208,6 +217,14 @@ func Commit(zoneId uint) error {
 		return err
 	}
 
+	// Set new serial
+	zone.SetNewSerial()
+	err = db.Model(&zone).Update("serial", zone.Serial).Error
+	if err != nil {
+		return err
+	}
+
+	// Generate all config files for bind
 	var allZonesPrimaryConfig string
 	var allZonesSecondaryConfig string
 	for _, zone := range zones {
@@ -219,31 +236,17 @@ func Commit(zoneId uint) error {
 	}
 
 	// Save slaves' main config
-	for _, server := range config.SecondaryNameServerIPs {
-		err = SendFileViaSSH(server, SecondaryBindConfigPath, allZonesSecondaryConfig)
-		if err != nil {
-			return err
-		}
-		_, err = SendCommandViaSSH(server, "systemctl reload bind9")
-		if err != nil {
-			return err
-		}
-	}
+	go SetSlavesBindConfig()
 
-	// Save zone file
-	err = SendFileViaSSH(config.PrimaryNameServer, path.Join(PrimaryZonePath, zone.Domain + ".zone"), zone.Render())
-	if err != nil {
-		return err
-	}
-	// Save master's main config
-	err = SendFileViaSSH(config.PrimaryNameServer, PrimaryBindConfigPath, allZonesPrimaryConfig)
-	if err != nil {
-		return err
-	}
-	_, err = SendCommandViaSSH(config.PrimaryNameServer, "systemctl reload bind9")
-	if err != nil {
-		return err
-	}
+	go func (zone *Zone, IP string, bindConfig string){
+		// Save zone file
+		err = SendFileViaSSH(IP, path.Join(PrimaryZonePath, zone.Domain + ".zone"), zone.Render())
+		if err != nil {
+			panic(err)
+		}
+
+		SetMasterBindConfig()
+	}(&zone, config.PrimaryNameServer, allZonesPrimaryConfig)
 
 	// Force zone refresh a few moments after everything is done
 	go func (config *Config, zone *Zone) {
@@ -252,17 +255,12 @@ func Commit(zoneId uint) error {
 
 		// When reload is done, force to refresh
 		for _, server := range config.SecondaryNameServerIPs {
-			err = SendFileViaSSH(server, SecondaryBindConfigPath, allZonesSecondaryConfig)
-			if err != nil {
-				panic(err)
-			}
 			_, err = SendCommandViaSSH(server, "rndc refresh " + zone.Domain)
 			if err != nil {
 				panic(err)
 			}
 		}
 	}(&config, &zone)
-
 
 	return nil
 }
