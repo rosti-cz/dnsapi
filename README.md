@@ -4,6 +4,10 @@ Simple DNS API for managing Bind server from remote localtion.
 
 We use this as a micro service for our web administration. 
 
+## TODO
+
+* deletetion of unexisted zones causes "Internal Server Error"
+
 ## Endpoints
 
 The API covers two record types. One is for zones and the other one for records. Record is always grouped by zone.
@@ -15,13 +19,13 @@ Everytime you do a change and want to write it into NS servers call commit endpo
     
 List of zones.
 
---
+---
 
     GET    /zones/:zone_id
 
 Returns data for *zone_id*.
 
---
+---
 
     POST   /zones/
 
@@ -32,13 +36,13 @@ Returns data for *zone_id*.
 
 Adds new zone.
 
---
+---
 
     DELETE /zones/:zone_id
 
 Deletes zone with *zone_id*.
 
---
+---
 
     PUT    /zones/:zone_id
     
@@ -48,7 +52,7 @@ Deletes zone with *zone_id*.
 
 Updates the zone *zone_id*.
 
---
+---
 
     PUT    /zones/:zone_id/commit
 
@@ -60,13 +64,13 @@ Writes changes into the DNS servers.
     
 Returns list of records for *zone_id*.
 
---
+---
     
     GET    /zones/:zone_id/records/:record_id
     
 Return data for *record_id*.
 
---
+---
 
     POST   /zones/:zone_id/records/
 
@@ -79,13 +83,13 @@ Return data for *record_id*.
 
 Adds a new record.
 
---
+---
 
     DELETE /zones/:zone_id/records/:record_id
     
 Deletes the record with *record_id*.
 
---
+---
 
     PUT    /zones/:zone_id/records/:record_id
     

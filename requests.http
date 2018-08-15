@@ -1,0 +1,75 @@
+# For a quick start check out our HTTP Requests collection (Tools|HTTP Client|Open HTTP Requests Collection).
+#
+# Following HTTP Request Live Templates are available:
+# * 'gtrp' and 'gtr' create a GET request with or without query parameters;
+# * 'ptr' and 'ptrp' create a POST request with a simple or parameter-like body;
+# * 'mptr' and 'fptr' create a POST request to submit a form with a text or file field (multipart/form-data);
+
+GET http://{{ host }}/zones/
+Accept: application/json
+Authorization: Token {{ token }}
+
+###
+
+POST http://{{ host }}/zones/
+Content-Type: application/json
+Authorization: Token {{ token }}
+
+{
+  "domain": "rosti-example.cz"
+}
+
+###
+
+PUT http://{{ host }}/zones/5/commit
+Content-Type: application/json
+Authorization: Token {{ token }}
+
+###
+
+DELETE http://{{ host }}/zones/4
+Content-Type: application/json
+Authorization: Token {{ token }}
+
+###
+
+GET http://{{ host }}/zones/5/records/
+Content-Type: application/json
+Authorization: Token {{ token }}
+
+###
+
+POST http://{{ host }}/zones/5/records/
+Content-Type: application/json
+Authorization: Token {{ token }}
+
+{
+  "name": "",
+  "ttl": 3600,
+  "type": "A",
+  "prio": 0,
+  "value": "127.0.0.1"
+}
+
+###
+
+POST http://{{ host }}/zones/5/records/
+Content-Type: application/json
+Authorization: Token {{ token }}
+
+{
+  "name": "",
+  "ttl": 3600,
+  "type": "MX",
+  "prio": 10,
+  "value": "mail.rosti-example.cz."
+}
+
+###
+
+DELETE http://{{ host }}/zones/5/records/31
+Content-Type: application/json
+Authorization: Token {{ token }}
+
+
+###

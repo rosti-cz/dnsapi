@@ -197,6 +197,16 @@ func (z *Zone) Validate() []error {
 
 	// Additional checks
 
+	// Domain name has to exist
+	// TODO: make this better
+	if len(z.Domain) < 3 {
+		errorsMsgs = append(errorsMsgs, errors.New("domain name has to be longer than three characters"))
+	}
+
+	if strings.Contains(z.Domain, ".") {
+		errorsMsgs = append(errorsMsgs, errors.New("domain name has to contain at least one dot"))
+	}
+
 	// CNAME record can't have same name as another AAAA record, A record or CNAME record
 	for _, record := range z.Records {
 		if record.Type == "CNAME" {
