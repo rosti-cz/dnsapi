@@ -203,7 +203,7 @@ func (z *Zone) Validate() []error {
 		errorsMsgs = append(errorsMsgs, errors.New("domain name has to be longer than three characters"))
 	}
 
-	if strings.Contains(z.Domain, ".") {
+	if !strings.Contains(z.Domain, ".") {
 		errorsMsgs = append(errorsMsgs, errors.New("domain name has to contain at least one dot"))
 	}
 

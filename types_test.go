@@ -98,7 +98,9 @@ func TestZone_SetNewSerial(t *testing.T) {
 
 func TestValidZone(t *testing.T) {
 	// A valid zone with config's email
-	var zone Zone
+	var zone = Zone{
+		Domain: TEST_DOMAIN,
+	}
 	zone.AddRecord("@", 300, "A", 0, "1.2.3.4")
 	zone.AddRecord("@", 300, "AAAA", 0, "2001::2")
 	zone.AddRecord("www", 300, "CNAME", 0, "@")
@@ -113,6 +115,7 @@ func TestValidZone(t *testing.T) {
 
 	// A valid zone with config's email
 	zone = Zone{
+		Domain: TEST_DOMAIN,
 		Serial: "2006010201",
 		AbuseEmail: "cx@initd.cz",
 	}
