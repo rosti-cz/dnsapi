@@ -184,6 +184,17 @@ func (z *Zone) Validate() []error {
 	var errorsMsgs []error
 	var usedNames []string
 
+	var numberOfExistingDomains int
+	db := GetDatabaseConnection()
+	err := db.Model(z).Where("domain = ?", z.Domain).Count(&numberOfExistingDomains).Error
+	if err != nil {
+		panic(err)
+	}
+
+	if z.ID == 0 && numberOfExistingDomains > 0 {
+		errorsMsgs = append(errorsMsgs, errors.New("domain already exists"))
+	}
+
 	for _, record := range z.Records {
 		err := record.Validate()
 		if err != nil {

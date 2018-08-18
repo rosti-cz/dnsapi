@@ -11,7 +11,7 @@ import (
 // Create a new zone
 func NewZone(domain string, tags []string, abuseEmail string) (*Zone, []error) {
 	zone := Zone{
-		Domain: domain,
+		Domain: strings.ToLower(domain),
 		Tags: strings.Join(tags, ","),
 		AbuseEmail: abuseEmail,
 		Delete: false,

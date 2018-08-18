@@ -9,7 +9,7 @@ import (
 
 func ExampleZone() {
 	// A valid zone
-	zone, errs := NewZone(TEST_DOMAIN, []string{"test_tag_1", "test_tag_2"}, TEST_ABUSE_EMAIL)
+	zone, errs := NewZone("B-" + TEST_DOMAIN, []string{"test_tag_1", "test_tag_2"}, TEST_ABUSE_EMAIL)
 	if len(errs) != 0 {
 		panic(errs)
 	}
@@ -30,7 +30,7 @@ func ExampleZone() {
 }
 
 func ExampleZone_RenderPrimary() {
-	zone, errs := NewZone(TEST_DOMAIN, []string{"test_tag_1", "test_tag_2"}, TEST_ABUSE_EMAIL)
+	zone, errs := NewZone("C-" + TEST_DOMAIN, []string{"test_tag_1", "test_tag_2"}, TEST_ABUSE_EMAIL)
 	if len(errs) != 0 {
 		panic(errs)
 	}
@@ -40,10 +40,10 @@ func ExampleZone_RenderPrimary() {
 
 	fmt.Println(zone.RenderPrimary())
 	// Output:
-	// zone "ohphiuhi.txt" IN {
+	// zone "c-ohphiuhi.txt" IN {
 	//         type master;
 	//         masterfile-format text;
-	//         file "ohphiuhi.txt.zone";
+	//         file "c-ohphiuhi.txt.zone";
 	//         allow-query { any; };
 	//         allow-transfer { 5.6.7.8; };
 	//         notify yes;
@@ -51,7 +51,7 @@ func ExampleZone_RenderPrimary() {
 }
 
 func ExampleZone_RenderSecondary() {
-	zone, errs := NewZone(TEST_DOMAIN, []string{"test_tag_1", "test_tag_2"}, TEST_ABUSE_EMAIL)
+	zone, errs := NewZone("D-" + TEST_DOMAIN, []string{"test_tag_1", "test_tag_2"}, TEST_ABUSE_EMAIL)
 	if len(errs) != 0 {
 		panic(errs)
 	}
@@ -61,10 +61,10 @@ func ExampleZone_RenderSecondary() {
 
 	fmt.Println(zone.RenderSecondary())
 	// Output:
-	// zone "ohphiuhi.txt" IN {
+	// zone "d-ohphiuhi.txt" IN {
 	//     type slave;
 	//     masterfile-format text;
-	//     file "ohphiuhi.txt.zone";
+	//     file "d-ohphiuhi.txt.zone";
 	//     allow-query { any; };
 	//     masters { 1.2.3.4; };
 	// };
@@ -99,7 +99,7 @@ func TestZone_SetNewSerial(t *testing.T) {
 func TestValidZone(t *testing.T) {
 	// A valid zone with config's email
 	var zone = Zone{
-		Domain: TEST_DOMAIN,
+		Domain: "E-" + TEST_DOMAIN,
 	}
 	zone.AddRecord("@", 300, "A", 0, "1.2.3.4")
 	zone.AddRecord("@", 300, "AAAA", 0, "2001::2")
@@ -115,7 +115,7 @@ func TestValidZone(t *testing.T) {
 
 	// A valid zone with config's email
 	zone = Zone{
-		Domain: TEST_DOMAIN,
+		Domain: "F-" + TEST_DOMAIN,
 		Serial: "2006010201",
 		AbuseEmail: "cx@initd.cz",
 	}
@@ -136,7 +136,7 @@ func TestInvalidZone(t *testing.T) {
 	// A valid zone
 	var zone *Zone
 
-	zone, errs := NewZone(TEST_DOMAIN, []string{"test_tag_1", "test_tag_2"}, TEST_ABUSE_EMAIL)
+	zone, errs := NewZone("G-" + TEST_DOMAIN, []string{"test_tag_1", "test_tag_2"}, TEST_ABUSE_EMAIL)
 	if len(errs) != 0 {
 		t.Error(errs)
 	}
