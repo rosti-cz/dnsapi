@@ -6,7 +6,6 @@ import (
 	"strings"
 	"strconv"
 	"github.com/jinzhu/gorm"
-	"errors"
 )
 
 // ##############
@@ -47,11 +46,10 @@ func NewZoneHandler(c echo.Context) error {
 
 	err := c.Bind(&zone)
 	if err != nil {
-		panic(echo.HTTPError{
+		return &echo.HTTPError{
 			Code: http.StatusBadRequest,
-			Internal: err,
 			Message: err.Error(),
-		})
+		}
 	}
 
 	pzone, errs := NewZone(zone.Domain, strings.Split(zone.Tags, ","), zone.AbuseEmail)
@@ -61,11 +59,10 @@ func NewZoneHandler(c echo.Context) error {
 			message += "\n" + err.Error()
 		}
 
-		panic(echo.HTTPError{
+		return &echo.HTTPError{
 			Code: http.StatusBadRequest,
-			Internal: errors.New("new zone error"),
 			Message: message,
-		})
+		}
 	}
 
 	return c.JSONPretty(http.StatusCreated, *pzone, "  ")
@@ -81,11 +78,10 @@ func DeleteZoneHandler(c echo.Context) error {
 
 	err = DeleteZone(uint(zoneIdInt))
 	if err != nil {
-		panic(echo.HTTPError{
+		return &echo.HTTPError{
 			Code: http.StatusInternalServerError,
-			Internal: err,
 			Message: err.Error(),
-		})
+		}
 	}
 
 	return c.JSONPretty(http.StatusOK, map[string]string{"message": "deleted"}, "  ")
@@ -97,11 +93,10 @@ func UpdateZoneHandler(c echo.Context) error {
 
 	err := c.Bind(&zoneBody)
 	if err != nil {
-		panic(echo.HTTPError{
+		return &echo.HTTPError{
 			Code: http.StatusBadRequest,
-			Internal: err,
 			Message: err.Error(),
-		})
+		}
 	}
 
 	zoneIdInt, err := strconv.Atoi(zoneId)
@@ -116,11 +111,10 @@ func UpdateZoneHandler(c echo.Context) error {
 			message += "\n" + err.Error()
 		}
 
-		panic(echo.HTTPError{
+		return &echo.HTTPError{
 			Code: http.StatusBadRequest,
-			Internal: errors.New("update zone error"),
 			Message: message,
-		})
+		}
 	}
 
 	return c.JSONPretty(http.StatusOK, zone, "  ")
@@ -183,11 +177,10 @@ func NewRecordHandler(c echo.Context) error {
 
 	err := c.Bind(&recordBody)
 	if err != nil {
-		panic(echo.HTTPError{
+		return &echo.HTTPError{
 			Code: http.StatusBadRequest,
-			Internal: err,
 			Message: err.Error(),
-		})
+		}
 	}
 
 	zoneId := c.Param("zone_id")
@@ -211,11 +204,10 @@ func NewRecordHandler(c echo.Context) error {
 			message += "\n" + err.Error()
 		}
 
-		panic(echo.HTTPError{
+		return &echo.HTTPError{
 			Code: http.StatusBadRequest,
-			Internal: errors.New("new record error"),
 			Message: message,
-		})
+		}
 	}
 
 	return c.JSONPretty(http.StatusCreated, record, "  ")
@@ -231,11 +223,10 @@ func DeleteRecordHandler(c echo.Context) error {
 
 	err = DeleteRecord(uint(recordIdInt))
 	if err != nil {
-		panic(echo.HTTPError{
+		return &echo.HTTPError{
 			Code: http.StatusBadRequest,
-			Internal: err,
 			Message: err.Error(),
-		})
+		}
 	}
 
 	return c.JSONPretty(http.StatusOK, map[string]string{"message": "deleted"}, "  ")
@@ -247,11 +238,10 @@ func UpdateRecordHandler(c echo.Context) error {
 
 	err := c.Bind(&recordBody)
 	if err != nil {
-		panic(echo.HTTPError{
+		return &echo.HTTPError{
 			Code: http.StatusBadRequest,
-			Internal: err,
 			Message: err.Error(),
-		})
+		}
 	}
 
 	recordIdInt, err := strconv.Atoi(recordId)
@@ -272,11 +262,10 @@ func UpdateRecordHandler(c echo.Context) error {
 			message += "\n" + err.Error()
 		}
 
-		panic(echo.HTTPError{
+		return &echo.HTTPError{
 			Code: http.StatusBadRequest,
-			Internal: errors.New("update record error"),
 			Message: message,
-		})
+		}
 	}
 
 	return c.JSONPretty(http.StatusOK, zone, "  ")
