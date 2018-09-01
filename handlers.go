@@ -166,7 +166,16 @@ func GetRecordHandler(c echo.Context) error {
 
 	err := db.Where("id = ?", recordId).Find(&record).Error
 	if err != nil {
-		panic(err)
+		if db.RecordNotFound() {
+			return &echo.HTTPError{
+				Code: http.StatusNotFound,
+				Message: err.Error(),
+			}
+		}
+		return &echo.HTTPError{
+			Code: http.StatusInternalServerError,
+			Message: err.Error(),
+		}
 	}
 
 	return c.JSONPretty(http.StatusOK, record, "  ")
@@ -206,7 +215,7 @@ func NewRecordHandler(c echo.Context) error {
 
 		return &echo.HTTPError{
 			Code: http.StatusBadRequest,
-			Message: message,
+			Message: strings.Trim(message, "\n"),
 		}
 	}
 
@@ -264,7 +273,7 @@ func UpdateRecordHandler(c echo.Context) error {
 
 		return &echo.HTTPError{
 			Code: http.StatusBadRequest,
-			Message: message,
+			Message: strings.Trim(message, "\n"),
 		}
 	}
 
