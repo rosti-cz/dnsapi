@@ -12,6 +12,8 @@ const (
 	PrimaryBindConfigPath = "/etc/bind/named.conf.rosti"
 	// Where bind's configuration is saved in bind's directory (slave)
 	SecondaryBindConfigPath = "/etc/bind/named.conf.rosti"
+
+	RECORD_NOT_FOUND_MESSAGE = "record not found"
 )
 
 // Configuration struct. All input form the maintainer is available through this struct.

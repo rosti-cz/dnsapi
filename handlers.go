@@ -34,6 +34,13 @@ func GetZoneHandler(c echo.Context) error {
 
 	err := db.Where("id = ?", zoneId).Preload("Records").Find(&zone).Error
 	if err != nil {
+		if strings.Trim(err.Error(), "\n") == RECORD_NOT_FOUND_MESSAGE {
+			return &echo.HTTPError{
+				Code: http.StatusNotFound,
+				Message: strings.Trim(err.Error(), "\n"),
+			}
+		}
+
 		panic(err)
 	}
 
@@ -78,6 +85,13 @@ func DeleteZoneHandler(c echo.Context) error {
 
 	err = DeleteZone(uint(zoneIdInt))
 	if err != nil {
+		if strings.Trim(err.Error(), "\n") == RECORD_NOT_FOUND_MESSAGE {
+			return &echo.HTTPError{
+				Code: http.StatusNotFound,
+				Message: strings.Trim(err.Error(), "\n"),
+			}
+		}
+
 		return &echo.HTTPError{
 			Code: http.StatusInternalServerError,
 			Message: err.Error(),
@@ -109,6 +123,13 @@ func UpdateZoneHandler(c echo.Context) error {
 		message := ""
 		for _, err := range errs {
 			message += "\n" + err.Error()
+		}
+
+		if strings.Trim(message, "\n") == RECORD_NOT_FOUND_MESSAGE {
+			return &echo.HTTPError{
+				Code: http.StatusNotFound,
+				Message: strings.Trim(message, "\n"),
+			}
 		}
 
 		return &echo.HTTPError{
@@ -151,6 +172,13 @@ func GetRecordsHandler(c echo.Context) error {
 
 	err := db.Model(&Record{}).Find(&records).Error
 	if err != nil {
+		if strings.Trim(err.Error(), "\n") == RECORD_NOT_FOUND_MESSAGE {
+			return &echo.HTTPError{
+				Code: http.StatusNotFound,
+				Message: strings.Trim(err.Error(), "\n"),
+			}
+		}
+
 		panic(err)
 	}
 
@@ -166,10 +194,10 @@ func GetRecordHandler(c echo.Context) error {
 
 	err := db.Where("id = ?", recordId).Find(&record).Error
 	if err != nil {
-		if db.RecordNotFound() {
+		if strings.Trim(err.Error(), "\n") == RECORD_NOT_FOUND_MESSAGE {
 			return &echo.HTTPError{
 				Code: http.StatusNotFound,
-				Message: err.Error(),
+				Message: strings.Trim(err.Error(), "\n"),
 			}
 		}
 		return &echo.HTTPError{
@@ -213,6 +241,13 @@ func NewRecordHandler(c echo.Context) error {
 			message += "\n" + err.Error()
 		}
 
+		if strings.Trim(message, "\n") == RECORD_NOT_FOUND_MESSAGE {
+			return &echo.HTTPError{
+				Code: http.StatusNotFound,
+				Message: strings.Trim(message, "\n"),
+			}
+		}
+
 		return &echo.HTTPError{
 			Code: http.StatusBadRequest,
 			Message: strings.Trim(message, "\n"),
@@ -232,6 +267,13 @@ func DeleteRecordHandler(c echo.Context) error {
 
 	err = DeleteRecord(uint(recordIdInt))
 	if err != nil {
+		if strings.Trim(err.Error(), "\n") == RECORD_NOT_FOUND_MESSAGE {
+			return &echo.HTTPError{
+				Code: http.StatusNotFound,
+				Message: strings.Trim(err.Error(), "\n"),
+			}
+		}
+
 		return &echo.HTTPError{
 			Code: http.StatusBadRequest,
 			Message: err.Error(),
@@ -269,6 +311,13 @@ func UpdateRecordHandler(c echo.Context) error {
 		message := ""
 		for _, err := range errs {
 			message += "\n" + err.Error()
+		}
+
+		if strings.Trim(message, "\n") == RECORD_NOT_FOUND_MESSAGE {
+			return &echo.HTTPError{
+				Code: http.StatusNotFound,
+				Message: strings.Trim(message, "\n"),
+			}
 		}
 
 		return &echo.HTTPError{
