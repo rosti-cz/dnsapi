@@ -259,7 +259,7 @@ func (z *Zone) Render() string {
 )
 `
 	for _, nameserver := range config.NameServers {
-		zone += "    IN    NS    " + nameserver + ".\n"
+		zone += "@    IN    NS    " + nameserver + ".\n"
 	}
 	//zone += "\n"
 
