@@ -26,7 +26,7 @@ func ExampleZone() {
 	h := sha256.New()
 	h.Write([]byte(renderedZone))
 	fmt.Printf("%x", h.Sum(nil))
-	// Output: f6ce5a30a9a900df14340b2198b4f95ae84733781239c388e4c5b8eb30dfdaba
+	// Output: f2fe0cdf592fd9e622b4bee653918f7b702b2de9d830a899ef8d341b51c761f3
 }
 
 func ExampleZone_RenderPrimary() {

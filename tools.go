@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/labstack/gommon/log"
 	"golang.org/x/crypto/ssh"
 	"fmt"
 	"github.com/pkg/sftp"
@@ -108,6 +109,13 @@ func SendCommandViaSSH(server string, command string) (*bytes.Buffer, error) {
 }
 
 func SetSlavesBindConfig() {
+	// This is called as goroutine
+	defer func() {
+		if r := recover(); r != nil {
+			log.Errorf(r.(error).Error())
+		}
+	}()
+
 	var zones []Zone // all zones
 
 	db := GetDatabaseConnection()
