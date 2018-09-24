@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/labstack/gommon/log"
 	"strings"
 	"time"
 	"path"
@@ -239,6 +240,13 @@ func Commit(zoneId uint) error {
 	go SetSlavesBindConfig()
 
 	go func (zone *Zone, IP string, bindConfig string){
+		// This is called as goroutine so we need to recover from panicing
+		defer func() {
+			// TODO: implement sentry here
+			if r := recover(); r != nil {
+				log.Errorf(r.(error).Error())
+			}
+		}()
 		// Save zone file
 		err = SendFileViaSSH(IP, path.Join(PrimaryZonePath, zone.Domain + ".zone"), zone.Render())
 		if err != nil {
@@ -250,6 +258,13 @@ func Commit(zoneId uint) error {
 
 	// Force zone refresh a few moments after everything is done
 	go func (config *Config, zone *Zone) {
+		// This is called as goroutine so we need to recover from panicing
+		defer func() {
+			// TODO: implement sentry here
+			if r := recover(); r != nil {
+				log.Errorf(r.(error).Error())
+			}
+		}()
 		// Wait for 10 second to settle things up
 		time.Sleep(10*time.Second)
 

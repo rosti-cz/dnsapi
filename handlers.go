@@ -168,9 +168,11 @@ func CommitHandler(c echo.Context) error {
 func GetRecordsHandler(c echo.Context) error {
 	db := GetDatabaseConnection()
 
+	zoneId := c.Param("zone_id")
+
 	var records []Record
 
-	err := db.Model(&Record{}).Find(&records).Error
+	err := db.Model(&Record{}).Where("zone_id = ?", zoneId).Find(&records).Error
 	if err != nil {
 		if strings.Trim(err.Error(), "\n") == RECORD_NOT_FOUND_MESSAGE {
 			return &echo.HTTPError{

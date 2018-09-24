@@ -109,8 +109,9 @@ func SendCommandViaSSH(server string, command string) (*bytes.Buffer, error) {
 }
 
 func SetSlavesBindConfig() {
-	// This is called as goroutine
+	// This is called as goroutine so we need to recover from panicing
 	defer func() {
+		// TODO: implement sentry here
 		if r := recover(); r != nil {
 			log.Errorf(r.(error).Error())
 		}
@@ -134,6 +135,14 @@ func SetSlavesBindConfig() {
 
 	for _, server := range config.SecondaryNameServerIPs {
 		go func (server string, bindConfig string){
+			// This is called as goroutine so we need to recover from panicing
+			defer func() {
+				// TODO: implement sentry here
+				if r := recover(); r != nil {
+					log.Errorf(r.(error).Error())
+				}
+			}()
+
 			err := SendFileViaSSH(server, SecondaryBindConfigPath, bindConfig)
 			if err != nil {
 				panic(err)
@@ -147,6 +156,14 @@ func SetSlavesBindConfig() {
 }
 
 func SetMasterBindConfig() {
+	// This is called as goroutine so we need to recover from panicing
+	// TODO: implement sentry here
+	defer func() {
+		if r := recover(); r != nil {
+			log.Errorf(r.(error).Error())
+		}
+	}()
+
 	var zones []Zone // all zones
 
 	db := GetDatabaseConnection()
