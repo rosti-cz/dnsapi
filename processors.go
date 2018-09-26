@@ -133,7 +133,7 @@ func NewRecord(zoneId uint, name string, ttl int, recordType string, prio int, v
 
 // Update existing record
 func UpdateRecord(recordId uint, name string, ttl int, prio int, value string) (*Record, []error) {
-	var record Record
+	var record *Record
 	var zone Zone
 
 	db := GetDatabaseConnection()
@@ -145,6 +145,15 @@ func UpdateRecord(recordId uint, name string, ttl int, prio int, value string) (
 	err = db.Where("id = ?", record.ZoneId).Preload("Records").Find(&zone).Error
 	if err != nil {
 		return nil, []error{err}
+	}
+
+	for _, recordTmp := range zone.Records {
+		if recordTmp.ID == recordId {
+			record = &recordTmp
+		}
+	}
+	if record == nil {
+		panic(errors.New("record not found"))
 	}
 
 	record.Name = name
@@ -182,7 +191,7 @@ func UpdateRecord(recordId uint, name string, ttl int, prio int, value string) (
 		return nil, []error{err}
 	}
 
-	return &record, nil
+	return record, nil
 }
 
 // Delete existing record
