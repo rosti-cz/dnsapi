@@ -31,7 +31,7 @@ type Record struct {
 // Validates the record
 func (r *Record) Validate() error {
 	// Test name
-	matched, err := regexp.MatchString(`[a-z\.0-9@\-]{1,64}`, r.Value)
+	matched, err := regexp.MatchString(`[a-z\.0-9@\-]{1,68}`, r.Value)
 	if err != nil {
 		panic(err)
 	}
@@ -58,7 +58,7 @@ func (r *Record) Validate() error {
 			return errors.New(r.Type + " " + r.Name + ": IP address of AAAA record is not valid")
 		}
 	} else if r.Type == "CNAME" {
-		matched, err := regexp.MatchString(`[a-z\.0-9@\-]{1,64}`, r.Value)
+		matched, err := regexp.MatchString(`[a-z\.0-9@\-]{1,68}`, r.Value)
 		if err != nil {
 			panic(err)
 		}
@@ -88,7 +88,7 @@ func (r *Record) Render() string {
 
 	// In case of TXT, we have to split large records into lines
 	if r.Type == "TXT" {
-		var part = 64
+		var part = 68
 		var length = len(r.Value)
 		var last = length % part
 		var parts []string

@@ -131,9 +131,9 @@ func NewRecord(zoneId uint, name string, ttl int, recordType string, prio int, v
 	return record, nil
 }
 
-// Update existing record
+// UpdateRecord updates existing record
 func UpdateRecord(recordId uint, name string, ttl int, prio int, value string) (*Record, []error) {
-	var record *Record
+	record := &Record{}
 	var zone Zone
 
 	db := GetDatabaseConnection()
