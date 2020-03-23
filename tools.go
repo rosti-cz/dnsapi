@@ -1,13 +1,14 @@
 package main
 
 import (
-	"github.com/labstack/gommon/log"
-	"golang.org/x/crypto/ssh"
-	"fmt"
-	"github.com/pkg/sftp"
-	"os"
 	"bytes"
+	"fmt"
 	"io/ioutil"
+	"os"
+
+	"github.com/labstack/gommon/log"
+	"github.com/pkg/sftp"
+	"golang.org/x/crypto/ssh"
 )
 
 func loadSSHKey(path string) []byte {
@@ -20,6 +21,7 @@ func loadSSHKey(path string) []byte {
 
 func sshClient(server string) (*ssh.Client, error) {
 	var authMethods []ssh.AuthMethod
+	// loadSSHKey()
 	signer, err := ssh.ParsePrivateKey(loadSSHKey(config.SSHKey))
 	if err != nil {
 		return nil, err
@@ -134,7 +136,7 @@ func SetSlavesBindConfig() {
 	}
 
 	for _, server := range config.SecondaryNameServerIPs {
-		go func (server string, bindConfig string){
+		go func(server string, bindConfig string) {
 			// This is called as goroutine so we need to recover from panicing
 			defer func() {
 				// TODO: implement sentry here

@@ -2,9 +2,9 @@ package main
 
 import (
 	"os"
-	"testing"
 	"os/user"
 	"path"
+	"testing"
 )
 
 const TEST_DOMAIN = "ohphiuhi.txt"
@@ -41,7 +41,7 @@ func TestMain(m *testing.M) {
 func TestNewZone(t *testing.T) {
 	db := GetDatabaseConnection()
 
-	zone, errs := NewZone("A-" + TEST_DOMAIN, []string{"test_tag_1", "test_tag_2"}, TEST_ABUSE_EMAIL)
+	zone, errs := NewZone("A-"+TEST_DOMAIN, []string{"test_tag_1", "test_tag_2"}, TEST_ABUSE_EMAIL)
 	if len(errs) > 0 {
 		t.Error(errs)
 	}

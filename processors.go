@@ -1,21 +1,22 @@
 package main
 
 import (
-	"github.com/labstack/gommon/log"
+	"path"
 	"strings"
 	"time"
-	"path"
-	"github.com/pkg/errors"
+
 	"github.com/jinzhu/gorm"
+	"github.com/labstack/gommon/log"
+	"github.com/pkg/errors"
 )
 
 // Create a new zone
 func NewZone(domain string, tags []string, abuseEmail string) (*Zone, []error) {
 	zone := Zone{
-		Domain: strings.ToLower(domain),
-		Tags: strings.Join(tags, ","),
+		Domain:     strings.ToLower(domain),
+		Tags:       strings.Join(tags, ","),
 		AbuseEmail: abuseEmail,
-		Delete: false,
+		Delete:     false,
 	}
 
 	errs := zone.Validate()
@@ -34,7 +35,7 @@ func NewZone(domain string, tags []string, abuseEmail string) (*Zone, []error) {
 }
 
 // Update existing zone
-func UpdateZone(zoneId uint, tags[]string, abuseEmail string) (*Zone, []error) {
+func UpdateZone(zoneId uint, tags []string, abuseEmail string) (*Zone, []error) {
 	var zone Zone
 
 	db := GetDatabaseConnection()
@@ -96,7 +97,7 @@ func DeleteZone(zoneId uint) error {
 	}
 
 	// Delete the zone file
-	_, err = SendCommandViaSSH(config.PrimaryNameServerIP, "rm -f " + path.Join(PrimaryZonePath, zone.Domain + ".zone"))
+	_, err = SendCommandViaSSH(config.PrimaryNameServerIP, "rm -f "+path.Join(PrimaryZonePath, zone.Domain+".zone"))
 	if err != nil {
 		panic(err)
 	}
@@ -106,7 +107,6 @@ func DeleteZone(zoneId uint) error {
 
 	return nil
 }
-
 
 // Create a new record
 func NewRecord(zoneId uint, name string, ttl int, recordType string, prio int, value string) (*Record, []error) {
@@ -131,10 +131,10 @@ func NewRecord(zoneId uint, name string, ttl int, recordType string, prio int, v
 	return record, nil
 }
 
-// Update existing record
+// UpdateRecord updates existing record
 func UpdateRecord(recordId uint, name string, ttl int, prio int, value string) (*Record, []error) {
-	var record *Record
-	var zone Zone
+	var record Record = Record{}
+	var zone Zone = Zone{}
 
 	db := GetDatabaseConnection()
 	err := db.Where("id = ?", recordId).Find(&record).Error
@@ -149,10 +149,10 @@ func UpdateRecord(recordId uint, name string, ttl int, prio int, value string) (
 
 	for _, recordTmp := range zone.Records {
 		if recordTmp.ID == recordId {
-			record = &recordTmp
+			record = recordTmp
 		}
 	}
-	if record == nil {
+	if record.ID == 0 {
 		panic(errors.New("record not found"))
 	}
 
@@ -191,7 +191,7 @@ func UpdateRecord(recordId uint, name string, ttl int, prio int, value string) (
 		return nil, []error{err}
 	}
 
-	return record, nil
+	return &record, nil
 }
 
 // Delete existing record
@@ -210,7 +210,7 @@ func DeleteRecord(recordId uint) error {
 // TODO: here is a lot of SSH stuff we can do in parallel
 func Commit(zoneId uint) error {
 	var zones []Zone // all zones
-	var zone Zone // updating zone
+	var zone Zone    // updating zone
 
 	// Get the committing zone and all zones from db
 	db := GetDatabaseConnection()
@@ -248,7 +248,7 @@ func Commit(zoneId uint) error {
 	// Save slaves' main config
 	go SetSlavesBindConfig()
 
-	go func (zone *Zone, IP string, bindConfig string){
+	go func(zone *Zone, IP string, bindConfig string) {
 		// This is called as goroutine so we need to recover from panicing
 		defer func() {
 			// TODO: implement sentry here
@@ -257,7 +257,7 @@ func Commit(zoneId uint) error {
 			}
 		}()
 		// Save zone file
-		err = SendFileViaSSH(IP, path.Join(PrimaryZonePath, zone.Domain + ".zone"), zone.Render())
+		err = SendFileViaSSH(IP, path.Join(PrimaryZonePath, zone.Domain+".zone"), zone.Render())
 		if err != nil {
 			panic(err)
 		}
@@ -266,7 +266,7 @@ func Commit(zoneId uint) error {
 	}(&zone, config.PrimaryNameServer, allZonesPrimaryConfig)
 
 	// Force zone refresh a few moments after everything is done
-	go func (config *Config, zone *Zone) {
+	go func(config *Config, zone *Zone) {
 		// This is called as goroutine so we need to recover from panicing
 		defer func() {
 			// TODO: implement sentry here
@@ -275,11 +275,11 @@ func Commit(zoneId uint) error {
 			}
 		}()
 		// Wait for 10 second to settle things up
-		time.Sleep(10*time.Second)
+		time.Sleep(10 * time.Second)
 
 		// When reload is done, force to refresh
 		for _, server := range config.SecondaryNameServerIPs {
-			_, err = SendCommandViaSSH(server, "rndc refresh " + zone.Domain)
+			_, err = SendCommandViaSSH(server, "rndc refresh "+zone.Domain)
 			if err != nil {
 				panic(err)
 			}
