@@ -22,7 +22,7 @@ lint:
 build: test
 	go build -ldflags '-w' -o dnsapi
 
-deploy: build
+deploy:
 	scp dnsapi rosti-ns1:/opt/dnsapi_waiting_to_deploy
 	ssh rosti-ns1 systemctl stop dnsapi
 	ssh rosti-ns1 mv /opt/dnsapi_waiting_to_deploy /opt/dnsapi

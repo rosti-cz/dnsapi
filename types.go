@@ -3,13 +3,14 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"github.com/pkg/errors"
 	"net"
 	"regexp"
 	"strconv"
 	"strings"
 	"text/template"
 	"time"
+
+	"github.com/pkg/errors"
 )
 
 // Record struct
@@ -31,7 +32,7 @@ type Record struct {
 // Validates the record
 func (r *Record) Validate() error {
 	// Test name
-	matched, err := regexp.MatchString(`[a-z\.0-9@\-]{1,68}`, r.Value)
+	matched, err := regexp.MatchString(`[a-z\.0-9@\-]{1,254}`, r.Value)
 	if err != nil {
 		panic(err)
 	}
@@ -58,7 +59,7 @@ func (r *Record) Validate() error {
 			return errors.New(r.Type + " " + r.Name + ": IP address of AAAA record is not valid")
 		}
 	} else if r.Type == "CNAME" {
-		matched, err := regexp.MatchString(`[a-z\.0-9@\-]{1,68}`, r.Value)
+		matched, err := regexp.MatchString(`[a-z\.0-9@\-]{1,254}`, r.Value)
 		if err != nil {
 			panic(err)
 		}
@@ -82,13 +83,13 @@ func (r *Record) Validate() error {
 	return nil
 }
 
-// Renders one record
+// Render renders one record
 func (r *Record) Render() string {
 	var value = r.Value
 
 	// In case of TXT, we have to split large records into lines
 	if r.Type == "TXT" {
-		var part = 68
+		var part = 254
 		var length = len(r.Value)
 		var last = length % part
 		var parts []string
@@ -122,10 +123,10 @@ func (r *Record) Render() string {
 // Zone struct
 
 type Zone struct {
-	ID         uint      `json:"id" gorm:"primary_key"`
-	CreatedAt  time.Time `json:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at"`
-	Delete     bool      `json:"delete" gorm:"DEFAULT:0"`
+	ID        uint      `json:"id" gorm:"primary_key"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Delete    bool      `json:"delete" gorm:"DEFAULT:0"`
 
 	Domain     string   `json:"domain" sql:"index"`
 	Serial     string   `json:"serial"`

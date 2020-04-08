@@ -1,15 +1,15 @@
 package main
 
 import (
-	"testing"
-	"fmt"
 	"crypto/sha256"
+	"fmt"
+	"testing"
 	"time"
 )
 
 func ExampleZone() {
 	// A valid zone
-	zone, errs := NewZone("B-" + TEST_DOMAIN, []string{"test_tag_1", "test_tag_2"}, TEST_ABUSE_EMAIL)
+	zone, errs := NewZone("B-"+TEST_DOMAIN, []string{"test_tag_1", "test_tag_2"}, TEST_ABUSE_EMAIL)
 	if len(errs) != 0 {
 		panic(errs)
 	}
@@ -26,11 +26,11 @@ func ExampleZone() {
 	h := sha256.New()
 	h.Write([]byte(renderedZone))
 	fmt.Printf("%x", h.Sum(nil))
-	// Output: 94cd266e6c539311b2786706e10e0172be30e8fc8c49db78de38517c886c4fb7
+	// Output: 635d2be2a44773e301a0938357b868dbfe5282b2e516e28d21c4b0e41d642333
 }
 
 func ExampleZone_RenderPrimary() {
-	zone, errs := NewZone("C-" + TEST_DOMAIN, []string{"test_tag_1", "test_tag_2"}, TEST_ABUSE_EMAIL)
+	zone, errs := NewZone("C-"+TEST_DOMAIN, []string{"test_tag_1", "test_tag_2"}, TEST_ABUSE_EMAIL)
 	if len(errs) != 0 {
 		panic(errs)
 	}
@@ -51,7 +51,7 @@ func ExampleZone_RenderPrimary() {
 }
 
 func ExampleZone_RenderSecondary() {
-	zone, errs := NewZone("D-" + TEST_DOMAIN, []string{"test_tag_1", "test_tag_2"}, TEST_ABUSE_EMAIL)
+	zone, errs := NewZone("D-"+TEST_DOMAIN, []string{"test_tag_1", "test_tag_2"}, TEST_ABUSE_EMAIL)
 	if len(errs) != 0 {
 		panic(errs)
 	}
@@ -76,23 +76,23 @@ func TestZone_SetNewSerial(t *testing.T) {
 	today := time.Now().UTC().Format("20060102")
 
 	zone.SetNewSerial()
-	if zone.Serial != today + "01" {
-		t.Error("Got " + zone.Serial + ", expected "+ today +"01")
+	if zone.Serial != today+"01" {
+		t.Error("Got " + zone.Serial + ", expected " + today + "01")
 	}
 
 	zone.SetNewSerial()
-	if zone.Serial != today + "02" {
-		t.Error("Got " + zone.Serial + ", expected "+ today +"02")
+	if zone.Serial != today+"02" {
+		t.Error("Got " + zone.Serial + ", expected " + today + "02")
 	}
 
 	zone.SetNewSerial()
-	if zone.Serial != today + "03" {
-		t.Error("Got " + zone.Serial + ", expected "+ today +"03")
+	if zone.Serial != today+"03" {
+		t.Error("Got " + zone.Serial + ", expected " + today + "03")
 	}
 
 	zone.SetNewSerial()
-	if zone.Serial != today + "04" {
-		t.Error("Got " + zone.Serial + ", expected "+ today +"04")
+	if zone.Serial != today+"04" {
+		t.Error("Got " + zone.Serial + ", expected " + today + "04")
 	}
 }
 
@@ -115,8 +115,8 @@ func TestValidZone(t *testing.T) {
 
 	// A valid zone with config's email
 	zone = Zone{
-		Domain: "F-" + TEST_DOMAIN,
-		Serial: "2006010201",
+		Domain:     "F-" + TEST_DOMAIN,
+		Serial:     "2006010201",
 		AbuseEmail: "cx@initd.cz",
 	}
 	zone.AddRecord("@", 300, "A", 0, "1.2.3.4")
@@ -136,18 +136,18 @@ func TestInvalidZone(t *testing.T) {
 	// A valid zone
 	var zone *Zone
 
-	zone, errs := NewZone("G-" + TEST_DOMAIN, []string{"test_tag_1", "test_tag_2"}, TEST_ABUSE_EMAIL)
+	zone, errs := NewZone("G-"+TEST_DOMAIN, []string{"test_tag_1", "test_tag_2"}, TEST_ABUSE_EMAIL)
 	if len(errs) != 0 {
 		t.Error(errs)
 	}
 
-	zone.AddRecord("@", 300, "A", 0, "1.2.3.a") // Invalid IPv4
-	zone.AddRecord("@", 300, "AAAA", 0, "2001::g") // Invalid IPv6
-	zone.AddRecord("www", 300, "A", 0, "1.2.3.4") // Valid A record
-	zone.AddRecord("www", 300, "CNAME", 0, "@") // same name as existing a record
-	zone.AddRecord("abc", 300, "CNAME", 0, "||||") // invalid value in CNAME
-	zone.AddRecord("@", 300, "MX", 0, "mail.rosti.cz.") // invalid prio
-	zone.AddRecord("@", 1, "MX", 10, "mail.rosti.cz.") // invalid TTL
+	zone.AddRecord("@", 300, "A", 0, "1.2.3.a")              // Invalid IPv4
+	zone.AddRecord("@", 300, "AAAA", 0, "2001::g")           // Invalid IPv6
+	zone.AddRecord("www", 300, "A", 0, "1.2.3.4")            // Valid A record
+	zone.AddRecord("www", 300, "CNAME", 0, "@")              // same name as existing a record
+	zone.AddRecord("abc", 300, "CNAME", 0, "||||")           // invalid value in CNAME
+	zone.AddRecord("@", 300, "MX", 0, "mail.rosti.cz.")      // invalid prio
+	zone.AddRecord("@", 1, "MX", 10, "mail.rosti.cz.")       // invalid TTL
 	zone.AddRecord("@", 300, "UNKNOWN", 0, "mail.rosti.cz.") // invalid record type
 	zone.AddRecord("@", 300, "TXT", 0, "\"igeeweofeiroomoogokieghaithohthaechoocherohveehiebawuyeixeecoveegoeyohfachainauquaeceetipheivubohmoegheizeelaiquanaokooquiedokaidurahveehoshazaseveitheiyitachudiishaeghaexoovachacaijuyiedeochojingafeexusuquaingeiboovachahlaechahcashoophairohthaghobahjaixieboteixameimohmaedahriebaekoshohpeecueyaoseeveibavaithohquaevoalohreingewiesaijiojiehielahzaelohpechuohiefaeyaetiegengahgatheefaipeimeeviedimibohmoyajefahghaaraehieyiepameegheathaechielixahbeidohyaitionahjaenoshikahbahyaebeachahxalaeghuloochaekuthaiquaedoo")
 
