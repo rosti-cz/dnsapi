@@ -1,11 +1,15 @@
 package main
 
 import (
+	"fmt"
+	"log"
 	"net/http"
-	"github.com/labstack/echo"
-	"strings"
 	"strconv"
+	"strings"
+	"time"
+
 	"github.com/jinzhu/gorm"
+	"github.com/labstack/echo"
 )
 
 // ##############
@@ -36,7 +40,7 @@ func GetZoneHandler(c echo.Context) error {
 	if err != nil {
 		if strings.Trim(err.Error(), "\n") == RECORD_NOT_FOUND_MESSAGE {
 			return &echo.HTTPError{
-				Code: http.StatusNotFound,
+				Code:    http.StatusNotFound,
 				Message: strings.Trim(err.Error(), "\n"),
 			}
 		}
@@ -54,7 +58,7 @@ func NewZoneHandler(c echo.Context) error {
 	err := c.Bind(&zone)
 	if err != nil {
 		return &echo.HTTPError{
-			Code: http.StatusBadRequest,
+			Code:    http.StatusBadRequest,
 			Message: err.Error(),
 		}
 	}
@@ -67,7 +71,7 @@ func NewZoneHandler(c echo.Context) error {
 		}
 
 		return &echo.HTTPError{
-			Code: http.StatusBadRequest,
+			Code:    http.StatusBadRequest,
 			Message: message,
 		}
 	}
@@ -87,13 +91,13 @@ func DeleteZoneHandler(c echo.Context) error {
 	if err != nil {
 		if strings.Trim(err.Error(), "\n") == RECORD_NOT_FOUND_MESSAGE {
 			return &echo.HTTPError{
-				Code: http.StatusNotFound,
+				Code:    http.StatusNotFound,
 				Message: strings.Trim(err.Error(), "\n"),
 			}
 		}
 
 		return &echo.HTTPError{
-			Code: http.StatusInternalServerError,
+			Code:    http.StatusInternalServerError,
 			Message: err.Error(),
 		}
 	}
@@ -108,7 +112,7 @@ func UpdateZoneHandler(c echo.Context) error {
 	err := c.Bind(&zoneBody)
 	if err != nil {
 		return &echo.HTTPError{
-			Code: http.StatusBadRequest,
+			Code:    http.StatusBadRequest,
 			Message: err.Error(),
 		}
 	}
@@ -127,20 +131,19 @@ func UpdateZoneHandler(c echo.Context) error {
 
 		if strings.Trim(message, "\n") == RECORD_NOT_FOUND_MESSAGE {
 			return &echo.HTTPError{
-				Code: http.StatusNotFound,
+				Code:    http.StatusNotFound,
 				Message: strings.Trim(message, "\n"),
 			}
 		}
 
 		return &echo.HTTPError{
-			Code: http.StatusBadRequest,
+			Code:    http.StatusBadRequest,
 			Message: message,
 		}
 	}
 
 	return c.JSONPretty(http.StatusOK, zone, "  ")
 }
-
 
 func CommitHandler(c echo.Context) error {
 	var zoneId = c.Param("zone_id")
@@ -176,7 +179,7 @@ func GetRecordsHandler(c echo.Context) error {
 	if err != nil {
 		if strings.Trim(err.Error(), "\n") == RECORD_NOT_FOUND_MESSAGE {
 			return &echo.HTTPError{
-				Code: http.StatusNotFound,
+				Code:    http.StatusNotFound,
 				Message: strings.Trim(err.Error(), "\n"),
 			}
 		}
@@ -198,12 +201,12 @@ func GetRecordHandler(c echo.Context) error {
 	if err != nil {
 		if strings.Trim(err.Error(), "\n") == RECORD_NOT_FOUND_MESSAGE {
 			return &echo.HTTPError{
-				Code: http.StatusNotFound,
+				Code:    http.StatusNotFound,
 				Message: strings.Trim(err.Error(), "\n"),
 			}
 		}
 		return &echo.HTTPError{
-			Code: http.StatusInternalServerError,
+			Code:    http.StatusInternalServerError,
 			Message: err.Error(),
 		}
 	}
@@ -217,7 +220,7 @@ func NewRecordHandler(c echo.Context) error {
 	err := c.Bind(&recordBody)
 	if err != nil {
 		return &echo.HTTPError{
-			Code: http.StatusBadRequest,
+			Code:    http.StatusBadRequest,
 			Message: err.Error(),
 		}
 	}
@@ -245,13 +248,13 @@ func NewRecordHandler(c echo.Context) error {
 
 		if strings.Trim(message, "\n") == RECORD_NOT_FOUND_MESSAGE {
 			return &echo.HTTPError{
-				Code: http.StatusNotFound,
+				Code:    http.StatusNotFound,
 				Message: strings.Trim(message, "\n"),
 			}
 		}
 
 		return &echo.HTTPError{
-			Code: http.StatusBadRequest,
+			Code:    http.StatusBadRequest,
 			Message: strings.Trim(message, "\n"),
 		}
 	}
@@ -271,13 +274,13 @@ func DeleteRecordHandler(c echo.Context) error {
 	if err != nil {
 		if strings.Trim(err.Error(), "\n") == RECORD_NOT_FOUND_MESSAGE {
 			return &echo.HTTPError{
-				Code: http.StatusNotFound,
+				Code:    http.StatusNotFound,
 				Message: strings.Trim(err.Error(), "\n"),
 			}
 		}
 
 		return &echo.HTTPError{
-			Code: http.StatusBadRequest,
+			Code:    http.StatusBadRequest,
 			Message: err.Error(),
 		}
 	}
@@ -292,7 +295,7 @@ func UpdateRecordHandler(c echo.Context) error {
 	err := c.Bind(&recordBody)
 	if err != nil {
 		return &echo.HTTPError{
-			Code: http.StatusBadRequest,
+			Code:    http.StatusBadRequest,
 			Message: err.Error(),
 		}
 	}
@@ -317,16 +320,37 @@ func UpdateRecordHandler(c echo.Context) error {
 
 		if strings.Trim(message, "\n") == RECORD_NOT_FOUND_MESSAGE {
 			return &echo.HTTPError{
-				Code: http.StatusNotFound,
+				Code:    http.StatusNotFound,
 				Message: strings.Trim(message, "\n"),
 			}
 		}
 
 		return &echo.HTTPError{
-			Code: http.StatusBadRequest,
+			Code:    http.StatusBadRequest,
 			Message: strings.Trim(message, "\n"),
 		}
 	}
 
 	return c.JSONPretty(http.StatusOK, zone, "  ")
+}
+
+func GetMetricsHandler(c echo.Context) error {
+	db := GetDatabaseConnection()
+	responseBody := ""
+	var count int64
+
+	responseBody += fmt.Sprintf("dnsapi_last %d\n", time.Now().Unix())
+
+	err := db.Model(&Zone{}).Preload("Records").Count(&count).Error
+	if err != nil {
+		log.Println("ERROR:", err)
+		return &echo.HTTPError{
+			Code:    http.StatusInternalServerError,
+			Message: strings.Trim(err.Error(), "\n"),
+		}
+	}
+
+	responseBody += fmt.Sprintf("dnsapi_zones_count %d\n", count)
+
+	return c.String(200, responseBody)
 }

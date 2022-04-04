@@ -1,10 +1,10 @@
 package main
 
 import (
-	"github.com/labstack/echo"
 	"strings"
-)
 
+	"github.com/labstack/echo"
+)
 
 // Process is the middleware function.
 func TokenMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
@@ -12,7 +12,7 @@ func TokenMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		tokenHeader := c.Request().Header.Get("Authorization")
 		token := strings.Replace(tokenHeader, "Token ", "", -1)
 
-		if token != config.APIToken || config.APIToken == "" {
+		if (token != config.APIToken || config.APIToken == "") && c.Request().URL.Path != "/metrics" {
 			return c.JSONPretty(403, map[string]string{"message": "access denied"}, " ")
 		}
 

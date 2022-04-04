@@ -35,6 +35,7 @@ clean:
 init:
 	mkdir -p ./bin
 
+# Run in this to deploy in production: podman run -ti -v (pwd):/srv --rm golang:stretch bash
 .PHONY: build
 build: test clean init linux-amd64 linux-arm linux-arm64
 	md5sum bin/dnsapi-* > bin/md5sums
@@ -43,21 +44,21 @@ build: test clean init linux-amd64 linux-arm linux-arm64
 .PHONY: linux-amd64
 linux-amd64: init dep clean
 	# linux amd64
-	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ./bin/dnsapi-${VERSION}-linux-amd64 *.go
+	env GOOS=linux GOARCH=amd64 go build -o ./bin/dnsapi-${VERSION}-linux-amd64 *.go
 
 .PHONY: linux-arm
 linux-arm: init dep clean
 	# linux arm
-	env CGO_ENABLED=0 GOOS=linux GOARCH=arm go build -o ./bin/dnsapi-${VERSION}-linux-arm *.go
+	env GOOS=linux GOARCH=arm go build -o ./bin/dnsapi-${VERSION}-linux-arm *.go
 
 .PHONY: linux-arm64
 linux-arm64: init dep clean
 	# linux arm64
-	env CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o ./bin/dnsapi-${VERSION}-linux-arm64 *.go
+	env GOOS=linux GOARCH=arm64 go build -o ./bin/dnsapi-${VERSION}-linux-arm64 *.go
 
 .PHONY: deploy
 deploy:
-	scp dnsapi rosti-ns1:/opt/dnsapi_waiting_to_deploy
+	scp ./bin/dnsapi-${VERSION}-linux-amd64 rosti-ns1:/opt/dnsapi_waiting_to_deploy
 	ssh rosti-ns1 systemctl stop dnsapi
 	ssh rosti-ns1 mv /opt/dnsapi_waiting_to_deploy /opt/dnsapi
 	git rev-parse HEAD | ssh rosti-ns1 tee /opt/deployed

@@ -1,15 +1,16 @@
 package main
 
 import (
-	"github.com/kelseyhightower/envconfig"
+	"errors"
 	"log"
+	"net"
+	"strconv"
+
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
-	"net"
+	"github.com/kelseyhightower/envconfig"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
-	"errors"
-	"strconv"
 )
 
 var config Config
@@ -100,29 +101,31 @@ func main() {
 
 	// Middleware
 	e.Use(middleware.RecoverWithConfig(middleware.RecoverConfig{
-		StackSize:  4 << 10, // 1 KB
+		StackSize: 4 << 10, // 1 KB
 	}))
 	e.Use(TokenMiddleware)
 	e.Use(middleware.Logger())
 
 	// Routes
-	e.GET("/zones/", GetZonesHandler) // List of zone
-	e.GET("/zones/:zone_id", GetZoneHandler) // Get one zone
-	e.POST("/zones/", NewZoneHandler) // New zone
+	e.GET("/metrics", GetMetricsHandler) // returns prometheus metrics
+
+	e.GET("/zones/", GetZonesHandler)              // List of zone
+	e.GET("/zones/:zone_id", GetZoneHandler)       // Get one zone
+	e.POST("/zones/", NewZoneHandler)              // New zone
 	e.DELETE("/zones/:zone_id", DeleteZoneHandler) // Delete the zone
-	e.PUT("/zones/:zone_id", UpdateZoneHandler) // Update the zone
+	e.PUT("/zones/:zone_id", UpdateZoneHandler)    // Update the zone
 	e.PUT("/zones/:zone_id/commit", CommitHandler) // Commit the zone
 
-	e.GET("/zones/:zone_id/records/", GetRecordsHandler) // List of records
-	e.GET("/zones/:zone_id/records/:record_id", GetRecordHandler) // Get record
-	e.POST("/zones/:zone_id/records/", NewRecordHandler) // New record
+	e.GET("/zones/:zone_id/records/", GetRecordsHandler)                // List of records
+	e.GET("/zones/:zone_id/records/:record_id", GetRecordHandler)       // Get record
+	e.POST("/zones/:zone_id/records/", NewRecordHandler)                // New record
 	e.DELETE("/zones/:zone_id/records/:record_id", DeleteRecordHandler) // Delete record
-	e.PUT("/zones/:zone_id/records/:record_id", UpdateRecordHandler) // Update record
+	e.PUT("/zones/:zone_id/records/:record_id", UpdateRecordHandler)    // Update record
 
-	e.GET("/export/", nil) // Export all data
+	e.GET("/export/", nil)  // Export all data
 	e.POST("/import/", nil) // Import all data
 
 	// Start server
-	e.Logger.Print("http://localhost:"+strconv.Itoa(int(config.Port)))
-	e.Logger.Fatal(e.Start(":"+strconv.Itoa(int(config.Port))))
+	e.Logger.Print("http://localhost:" + strconv.Itoa(int(config.Port)))
+	e.Logger.Fatal(e.Start(":" + strconv.Itoa(int(config.Port))))
 }
