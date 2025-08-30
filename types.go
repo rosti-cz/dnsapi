@@ -234,6 +234,13 @@ func (z *Zone) Validate() []error {
 		}
 	}
 
+	// CNAME cannot be root record
+	for _, record := range z.Records {
+		if record.Type == "CNAME" && record.Name == "@" {
+			errorsMsgs = append(errorsMsgs, errors.New("CNAME record cannot be root record"))
+		}
+	}
+
 	return errorsMsgs
 }
 
