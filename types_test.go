@@ -7,6 +7,22 @@ import (
 	"time"
 )
 
+func TestRecordRenderSRVQuotesValue(t *testing.T) {
+	record := Record{
+		Name:  "_sip._tcp",
+		TTL:   300,
+		Type:  "SRV",
+		Value: "10 5 5060 sip.example.com.",
+	}
+
+	rendered := record.Render()
+	expected := "_sip._tcp    300s    SRV      \"10 5 5060 sip.example.com.\""
+
+	if rendered != expected {
+		t.Fatalf("unexpected SRV rendering: got %q, expected %q", rendered, expected)
+	}
+}
+
 func ExampleZone() {
 	// A valid zone
 	zone, errs := NewZone("B-"+TEST_DOMAIN, []string{"test_tag_1", "test_tag_2"}, TEST_ABUSE_EMAIL)
@@ -155,5 +171,27 @@ func TestInvalidZone(t *testing.T) {
 	// TODO: check exact errors
 	if len(errs) != 8 {
 		t.Error("Not right amount of errors were generated", errs)
+	}
+}
+
+func TestInvalid2Zone(t *testing.T) {
+	// A valid zone
+	var zone *Zone
+
+	zone, errs := NewZone("G-"+TEST_DOMAIN+"2", []string{"test_tag_1", "test_tag_2"}, TEST_ABUSE_EMAIL)
+	if len(errs) != 0 {
+		t.Error(errs)
+	}
+
+	zone.AddRecord("@", 300, "CNAME", 0, "a.b.") // Invalid IPv4
+
+	errs = zone.Validate()
+	// TODO: check exact errors
+	if len(errs) == 0 {
+		t.Error("Expected validation errors, got none")
+	}
+
+	if len(errs) > 0 && errs[0].Error() != "CNAME record cannot be root record" {
+		t.Error("Expected specific validation error, got:", errs[0])
 	}
 }

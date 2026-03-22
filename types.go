@@ -105,6 +105,10 @@ func (r *Record) Render() string {
 		value = "(\"" + strings.Join(parts, "\"\n        \"") + "\")"
 	}
 
+	if r.Type == "SRV" {
+		value = "\"" + value + "\""
+	}
+
 	// If the record is MX, add prio
 	if r.Type == "MX" {
 		return r.Name + "    " +

@@ -1,4 +1,4 @@
-VERSION=1.0
+VERSION=1.1
 
 .PHONY: dep
 dep:
@@ -59,7 +59,6 @@ linux-arm64: init dep clean
 .PHONY: deploy
 deploy:
 	scp ./bin/dnsapi-${VERSION}-linux-amd64 rosti-ns1:/opt/dnsapi_waiting_to_deploy
-	ssh rosti-ns1 systemctl stop dnsapi
 	ssh rosti-ns1 mv /opt/dnsapi_waiting_to_deploy /opt/dnsapi
 	git rev-parse HEAD | ssh rosti-ns1 tee /opt/deployed
-	ssh rosti-ns1 systemctl start dnsapi
+	ssh rosti-ns1 systemctl restart dnsapi
