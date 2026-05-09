@@ -4,6 +4,10 @@ VERSION=1.1
 dep:
 	go mod tidy
 
+.PHONY: docs
+docs:
+	go run github.com/swaggo/swag/cmd/swag@v1.16.6 init --generalInfo app.go --dir ./pkg/dnsapi --output docs --parseDependency --parseInternal
+
 .PHONY: vet
 vet: dep
 	go vet

@@ -1,12 +1,13 @@
-package main
+package dnsapi
 
 import (
-	"testing"
-	"net/http/httptest"
-	"github.com/labstack/echo"
-	"strings"
-	"github.com/stretchr/testify/assert"
 	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/labstack/echo"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGetZonesHandler(t *testing.T) {

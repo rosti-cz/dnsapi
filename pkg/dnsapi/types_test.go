@@ -1,4 +1,4 @@
-package main
+package dnsapi
 
 import (
 	"crypto/sha256"
@@ -16,7 +16,7 @@ func TestRecordRenderSRVQuotesValue(t *testing.T) {
 	}
 
 	rendered := record.Render()
-	expected := "_sip._tcp    300s    SRV      \"10 5 5060 sip.example.com.\""
+	expected := "_sip._tcp    300s    SRV      10 5 5060 sip.example.com."
 
 	if rendered != expected {
 		t.Fatalf("unexpected SRV rendering: got %q, expected %q", rendered, expected)
@@ -25,7 +25,7 @@ func TestRecordRenderSRVQuotesValue(t *testing.T) {
 
 func ExampleZone() {
 	// A valid zone
-	zone, errs := NewZone("B-"+TEST_DOMAIN, []string{"test_tag_1", "test_tag_2"}, TEST_ABUSE_EMAIL)
+	zone, errs := NewZone("B-"+TEST_DOMAIN, []string{"test_tag_1", "test_tag_2"}, TEST_ABUSE_EMAIL, "testowner")
 	if len(errs) != 0 {
 		panic(errs)
 	}
@@ -46,7 +46,7 @@ func ExampleZone() {
 }
 
 func ExampleZone_RenderPrimary() {
-	zone, errs := NewZone("C-"+TEST_DOMAIN, []string{"test_tag_1", "test_tag_2"}, TEST_ABUSE_EMAIL)
+	zone, errs := NewZone("C-"+TEST_DOMAIN, []string{"test_tag_1", "test_tag_2"}, TEST_ABUSE_EMAIL, "testowner")
 	if len(errs) != 0 {
 		panic(errs)
 	}
@@ -67,7 +67,7 @@ func ExampleZone_RenderPrimary() {
 }
 
 func ExampleZone_RenderSecondary() {
-	zone, errs := NewZone("D-"+TEST_DOMAIN, []string{"test_tag_1", "test_tag_2"}, TEST_ABUSE_EMAIL)
+	zone, errs := NewZone("D-"+TEST_DOMAIN, []string{"test_tag_1", "test_tag_2"}, TEST_ABUSE_EMAIL, "testowner")
 	if len(errs) != 0 {
 		panic(errs)
 	}
@@ -152,7 +152,7 @@ func TestInvalidZone(t *testing.T) {
 	// A valid zone
 	var zone *Zone
 
-	zone, errs := NewZone("G-"+TEST_DOMAIN, []string{"test_tag_1", "test_tag_2"}, TEST_ABUSE_EMAIL)
+	zone, errs := NewZone("G-"+TEST_DOMAIN, []string{"test_tag_1", "test_tag_2"}, TEST_ABUSE_EMAIL, "testowner")
 	if len(errs) != 0 {
 		t.Error(errs)
 	}
@@ -162,7 +162,7 @@ func TestInvalidZone(t *testing.T) {
 	zone.AddRecord("www", 300, "A", 0, "1.2.3.4")            // Valid A record
 	zone.AddRecord("www", 300, "CNAME", 0, "@")              // same name as existing a record
 	zone.AddRecord("abc", 300, "CNAME", 0, "||||")           // invalid value in CNAME
-	zone.AddRecord("@", 300, "MX", 0, "mail.rosti.cz.")      // invalid prio
+	zone.AddRecord("@", 300, "MX", -1, "mail.rosti.cz.")     // invalid prio
 	zone.AddRecord("@", 1, "MX", 10, "mail.rosti.cz.")       // invalid TTL
 	zone.AddRecord("@", 300, "UNKNOWN", 0, "mail.rosti.cz.") // invalid record type
 	zone.AddRecord("@", 300, "TXT", 0, "\"igeeweofeiroomoogokieghaithohthaechoocherohveehiebawuyeixeecoveegoeyohfachainauquaeceetipheivubohmoegheizeelaiquanaokooquiedokaidurahveehoshazaseveitheiyitachudiishaeghaexoovachacaijuyiedeochojingafeexusuquaingeiboovachahlaechahcashoophairohthaghobahjaixieboteixameimohmaedahriebaekoshohpeecueyaoseeveibavaithohquaevoalohreingewiesaijiojiehielahzaelohpechuohiefaeyaetiegengahgatheefaipeimeeviedimibohmoyajefahghaaraehieyiepameegheathaechielixahbeidohyaitionahjaenoshikahbahyaebeachahxalaeghuloochaekuthaiquaedoo")
@@ -174,11 +174,59 @@ func TestInvalidZone(t *testing.T) {
 	}
 }
 
+func TestValidRecordTypes(t *testing.T) {
+	tests := []struct {
+		name   string
+		record Record
+	}{
+		{"NS", Record{Name: "@", TTL: 300, Type: "NS", Value: "ns1.example.com."}},
+		{"NS no trailing dot", Record{Name: "sub", TTL: 300, Type: "NS", Value: "ns1.example.com"}},
+		{"CAA issue", Record{Name: "@", TTL: 300, Type: "CAA", Value: `0 issue "letsencrypt.org"`}},
+		{"CAA issuewild", Record{Name: "@", TTL: 300, Type: "CAA", Value: `128 issuewild "pki.goog"`}},
+		{"CAA iodef", Record{Name: "@", TTL: 300, Type: "CAA", Value: `0 iodef "mailto:admin@example.com"`}},
+		{"SRV", Record{Name: "_sip._tcp", TTL: 300, Type: "SRV", Value: "10 20 5060 sip.example.com."}},
+		{"MX prio 0", Record{Name: "@", TTL: 300, Type: "MX", Prio: 0, Value: "mail.example.com."}},
+		{"MX prio 65535", Record{Name: "@", TTL: 300, Type: "MX", Prio: 65535, Value: "mail.example.com."}},
+		{"MX prio 200", Record{Name: "@", TTL: 300, Type: "MX", Prio: 200, Value: "mail.example.com."}},
+		{"CNAME with underscore", Record{Name: "sub", TTL: 300, Type: "CNAME", Value: "_dmarc.example.com."}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := tt.record.Validate(); err != nil {
+				t.Errorf("expected valid, got error: %v", err)
+			}
+		})
+	}
+}
+
+func TestInvalidRecordTypes(t *testing.T) {
+	tests := []struct {
+		name   string
+		record Record
+	}{
+		{"NS bad hostname", Record{Name: "@", TTL: 300, Type: "NS", Value: "not valid!"}},
+		{"CAA bad tag", Record{Name: "@", TTL: 300, Type: "CAA", Value: `0 badtag "value"`}},
+		{"CAA missing quotes", Record{Name: "@", TTL: 300, Type: "CAA", Value: "0 issue letsencrypt.org"}},
+		{"SRV bad format", Record{Name: "@", TTL: 300, Type: "SRV", Value: "not valid srv"}},
+		{"SRV missing port", Record{Name: "@", TTL: 300, Type: "SRV", Value: "10 20 sip.example.com."}},
+		{"MX prio -1", Record{Name: "@", TTL: 300, Type: "MX", Prio: -1, Value: "mail.example.com."}},
+		{"MX prio 65536", Record{Name: "@", TTL: 300, Type: "MX", Prio: 65536, Value: "mail.example.com."}},
+		{"MX bad hostname", Record{Name: "@", TTL: 300, Type: "MX", Prio: 10, Value: "not valid!"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := tt.record.Validate(); err == nil {
+				t.Errorf("expected validation error, got none")
+			}
+		})
+	}
+}
+
 func TestInvalid2Zone(t *testing.T) {
 	// A valid zone
 	var zone *Zone
 
-	zone, errs := NewZone("G-"+TEST_DOMAIN+"2", []string{"test_tag_1", "test_tag_2"}, TEST_ABUSE_EMAIL)
+	zone, errs := NewZone("G-"+TEST_DOMAIN+"2", []string{"test_tag_1", "test_tag_2"}, TEST_ABUSE_EMAIL, "testowner")
 	if len(errs) != 0 {
 		t.Error(errs)
 	}

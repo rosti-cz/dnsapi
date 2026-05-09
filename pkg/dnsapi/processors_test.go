@@ -1,9 +1,7 @@
-package main
+package dnsapi
 
 import (
 	"os"
-	"os/user"
-	"path"
 	"testing"
 )
 
@@ -12,11 +10,6 @@ const TEST_ABUSE_EMAIL = "t@ohphiuhi.txt"
 
 // Set config stuff here
 func TestMain(m *testing.M) {
-	loggedUser, err := user.Current()
-	if err != nil {
-		panic(err)
-	}
-
 	config.DatabasePath = "/tmp/dnsapi_test_database.sqlite"
 	os.Remove(config.DatabasePath)
 
@@ -28,7 +21,6 @@ func TestMain(m *testing.M) {
 	config.AbuseEmail = "cx@initd.cz"
 	config.PrimaryNameServerIP = "1.2.3.4"
 	config.SecondaryNameServerIPs = []string{"5.6.7.8"}
-	config.SSHKey = path.Join(loggedUser.HomeDir, ".ssh/id_rsa")
 
 	db := GetDatabaseConnection()
 	defer db.Close()
@@ -41,12 +33,12 @@ func TestMain(m *testing.M) {
 func TestNewZone(t *testing.T) {
 	db := GetDatabaseConnection()
 
-	zone, errs := NewZone("A-"+TEST_DOMAIN, []string{"test_tag_1", "test_tag_2"}, TEST_ABUSE_EMAIL)
+	zone, errs := NewZone("A-"+TEST_DOMAIN, []string{"test_tag_1", "test_tag_2"}, TEST_ABUSE_EMAIL, "testowner")
 	if len(errs) > 0 {
 		t.Error(errs)
 	}
 
-	_, errs = UpdateZone(zone.ID, []string{"only_one_tag"}, "test@initd.cz")
+	_, errs = UpdateZone(zone.ID, []string{"only_one_tag"}, "test@initd.cz", "testowner")
 	if len(errs) > 0 {
 		t.Error(errs)
 	}
@@ -67,9 +59,24 @@ func TestNewZone(t *testing.T) {
 		t.Error(errs)
 	}
 
-	_, errs = UpdateRecord(record.ID, "test2", 600, 0, "1.2.3.5")
+	otherZone, errs := NewZone("AA-"+TEST_DOMAIN, []string{"other"}, TEST_ABUSE_EMAIL, "testowner")
 	if len(errs) > 0 {
 		t.Error(errs)
+	}
+
+	_, errs = UpdateRecord(otherZone.ID, record.ID, "test2", 600, 0, "1.2.3.5")
+	if len(errs) == 0 {
+		t.Error("expected update in another zone to fail")
+	}
+
+	_, errs = UpdateRecord(updatedZone.ID, record.ID, "test2", 600, 0, "1.2.3.5")
+	if len(errs) > 0 {
+		t.Error(errs)
+	}
+
+	err = DeleteRecord(otherZone.ID, record.ID)
+	if err == nil {
+		t.Error("expected delete in another zone to fail")
 	}
 
 	// TODO: we need a mock server for this
@@ -78,7 +85,7 @@ func TestNewZone(t *testing.T) {
 	//	t.Error(err)
 	//}
 
-	err = DeleteRecord(record.ID)
+	err = DeleteRecord(updatedZone.ID, record.ID)
 	if err != nil {
 		t.Error(err)
 	}

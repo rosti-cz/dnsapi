@@ -1,4 +1,4 @@
-package main
+package dnsapi
 
 import (
 	"bytes"
@@ -32,7 +32,7 @@ type Record struct {
 // Validates the record
 func (r *Record) Validate() error {
 	// Test name
-	matched, err := regexp.MatchString(`[a-z\.0-9@\-]{1,254}`, r.Value)
+	matched, err := regexp.MatchString(`^[a-zA-Z0-9@._\-*]{1,254}$`, r.Name)
 	if err != nil {
 		panic(err)
 	}
@@ -59,7 +59,7 @@ func (r *Record) Validate() error {
 			return errors.New(r.Type + " " + r.Name + ": IP address of AAAA record is not valid")
 		}
 	} else if r.Type == "CNAME" {
-		matched, err := regexp.MatchString(`[a-z\.0-9@\-]{1,254}`, r.Value)
+		matched, err := regexp.MatchString(`^[a-zA-Z0-9@._\-]{1,254}\.?$`, r.Value)
 		if err != nil {
 			panic(err)
 		}
@@ -71,11 +71,42 @@ func (r *Record) Validate() error {
 			return errors.New(r.Type + " " + r.Name + ": characters \"' or ` are not allowed in TXT records")
 		}
 	} else if r.Type == "SRV" {
-	} else if r.Type == "MX" {
-		if r.Prio <= 0 && r.Prio <= 100 {
-			return errors.New(r.Type + " " + r.Name + ": Prio has to be bigger than 0 and smaller than 100")
+		// Format: <priority> <weight> <port> <target>
+		matched, err := regexp.MatchString(`^\d{1,5} \d{1,5} \d{1,5} [a-zA-Z0-9._\-]{1,253}\.?$`, r.Value)
+		if err != nil {
+			panic(err)
 		}
-		//TODO: Has to be domain and valid A/AAAA record (even in different location)
+		if !matched {
+			return errors.New(r.Type + " " + r.Name + ": SRV value must be in format \"priority weight port target\" (e.g. \"10 20 5060 sip.example.com.\")")
+		}
+	} else if r.Type == "MX" {
+		if r.Prio < 0 || r.Prio > 65535 {
+			return errors.New(r.Type + " " + r.Name + ": Prio has to be between 0 and 65535")
+		}
+		matched, err := regexp.MatchString(`^[a-zA-Z0-9._\-]{1,253}\.?$`, r.Value)
+		if err != nil {
+			panic(err)
+		}
+		if !matched {
+			return errors.New(r.Type + " " + r.Name + ": MX value must be a valid hostname")
+		}
+	} else if r.Type == "NS" {
+		matched, err := regexp.MatchString(`^[a-zA-Z0-9._\-]{1,253}\.?$`, r.Value)
+		if err != nil {
+			panic(err)
+		}
+		if !matched {
+			return errors.New(r.Type + " " + r.Name + ": NS value must be a valid hostname")
+		}
+	} else if r.Type == "CAA" {
+		// Format: <flags> <tag> "<value>" where tag is issue, issuewild, or iodef
+		matched, err := regexp.MatchString(`^\d{1,3} (issue|issuewild|iodef) ".+"$`, r.Value)
+		if err != nil {
+			panic(err)
+		}
+		if !matched {
+			return errors.New(r.Type + " " + r.Name + ": CAA value must be in format \"flags tag \\\"value\\\"\" (e.g. \"0 issue \\\"letsencrypt.org\\\"\")")
+		}
 	} else {
 		return errors.New("Unknown record type")
 	}
@@ -105,10 +136,6 @@ func (r *Record) Render() string {
 		value = "(\"" + strings.Join(parts, "\"\n        \"") + "\")"
 	}
 
-	if r.Type == "SRV" {
-		value = "\"" + value + "\""
-	}
-
 	// If the record is MX, add prio
 	if r.Type == "MX" {
 		return r.Name + "    " +
@@ -132,11 +159,13 @@ type Zone struct {
 	UpdatedAt time.Time `json:"updated_at"`
 	Delete    bool      `json:"delete" gorm:"DEFAULT:0"`
 
-	Domain     string   `json:"domain" sql:"index"`
-	Serial     string   `json:"serial"`
-	Records    []Record `json:"records" gorm:"foreignkey:ZoneID"`
-	Tags       string   `json:"tags"` // Tags separated by comma
-	AbuseEmail string   `json:"abuse_email"`
+	Domain          string   `json:"domain" sql:"index"`
+	Serial          string   `json:"serial"`
+	CommittedSerial string   `json:"committed_serial"`
+	Records         []Record `json:"records" gorm:"foreignkey:ZoneID"`
+	Tags            string   `json:"tags"` // Tags separated by comma
+	AbuseEmail      string   `json:"abuse_email"`
+	Owner           string   `json:"owner"`
 }
 
 func (z *Zone) SetNewSerial() {

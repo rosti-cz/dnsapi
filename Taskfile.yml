@@ -1,0 +1,102 @@
+# https://taskfile.dev
+
+version: '3'
+
+vars:
+  VERSION: "1.1"
+
+tasks:
+  dep:
+    desc: Tidy Go module dependencies
+    cmds:
+      - go mod tidy
+
+  docs:
+    desc: Regenerate Swagger docs (run after changing handler annotations)
+    cmds:
+      - go run github.com/swaggo/swag/cmd/swag@v1.16.6 init --generalInfo app.go --dir ./pkg/dnsapi --output docs --parseDependency --parseInternal
+
+  vet:
+    desc: Run go vet
+    deps: [dep]
+    cmds:
+      - go vet ./...
+
+  test:
+    desc: Run all tests
+    deps: [dep]
+    cmds:
+      - go test -run '' -v ./...
+
+  cover:
+    desc: Run tests with coverage report
+    deps: [dep]
+    cmds:
+      - go test -run '' -cover -coverprofile cover.out ./...
+      - go tool cover -html=cover.out
+
+  check:
+    desc: Vet + test
+    deps: [vet, test]
+
+  clean:
+    desc: Remove build artifacts
+    cmds:
+      - rm -f bin/*
+
+  build:
+    desc: Build release binaries for linux amd64/arm/arm64
+    deps: [test, clean]
+    cmds:
+      - mkdir -p ./bin
+      - task: linux-amd64
+      - task: linux-arm
+      - task: linux-arm64
+      - md5sum bin/dnsapi-* > bin/md5sums
+      - sha256sum bin/dnsapi-* > bin/sha256sums
+
+  linux-amd64:
+    desc: Build linux/amd64 binary
+    deps: [dep]
+    cmds:
+      - mkdir -p ./bin
+      - env GOOS=linux GOARCH=amd64 go build -o ./bin/dnsapi-{{.VERSION}}-linux-amd64 .
+
+  linux-arm:
+    desc: Build linux/arm binary
+    deps: [dep]
+    cmds:
+      - mkdir -p ./bin
+      - env GOOS=linux GOARCH=arm go build -o ./bin/dnsapi-{{.VERSION}}-linux-arm .
+
+  linux-arm64:
+    desc: Build linux/arm64 binary
+    deps: [dep]
+    cmds:
+      - mkdir -p ./bin
+      - env GOOS=linux GOARCH=arm64 go build -o ./bin/dnsapi-{{.VERSION}}-linux-arm64 .
+
+  deploy:
+    desc: Deploy amd64 binary to rosti-ns1
+    cmds:
+      - scp ./bin/dnsapi-{{.VERSION}}-linux-amd64 rosti-ns1:/opt/dnsapi_waiting_to_deploy
+      - ssh rosti-ns1 mv /opt/dnsapi_waiting_to_deploy /opt/dnsapi
+      - git rev-parse HEAD | ssh rosti-ns1 tee /opt/deployed
+      - ssh rosti-ns1 systemctl restart dnsapi
+
+  dev-up:
+    desc: Build images and start dev environment (preserves database)
+    cmds:
+      - podman-compose build --no-cache
+      - podman-compose down
+      - podman-compose up -d
+
+  dev-down:
+    desc: Stop dev environment (preserves database)
+    cmds:
+      - podman-compose down
+
+  dev-logs:
+    desc: Tail dnsapi-primary logs
+    cmds:
+      - podman-compose logs -f dnsapi-primary

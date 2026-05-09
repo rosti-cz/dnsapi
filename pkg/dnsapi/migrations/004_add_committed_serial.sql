@@ -1,0 +1,1 @@
+ALTER TABLE zones ADD COLUMN committed_serial TEXT NOT NULL DEFAULT '';

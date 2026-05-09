@@ -1,7 +1,6 @@
-package main
+package dnsapi
 
 import (
-	"path"
 	"strings"
 	"time"
 
@@ -11,11 +10,12 @@ import (
 )
 
 // Create a new zone
-func NewZone(domain string, tags []string, abuseEmail string) (*Zone, []error) {
+func NewZone(domain string, tags []string, abuseEmail string, owner string) (*Zone, []error) {
 	zone := Zone{
 		Domain:     strings.ToLower(domain),
 		Tags:       strings.Join(tags, ","),
 		AbuseEmail: abuseEmail,
+		Owner:      owner,
 		Delete:     false,
 	}
 
@@ -35,7 +35,7 @@ func NewZone(domain string, tags []string, abuseEmail string) (*Zone, []error) {
 }
 
 // Update existing zone
-func UpdateZone(zoneId uint, tags []string, abuseEmail string) (*Zone, []error) {
+func UpdateZone(zoneId uint, tags []string, abuseEmail string, owner string) (*Zone, []error) {
 	var zone Zone
 
 	db := GetDatabaseConnection()
@@ -46,6 +46,7 @@ func UpdateZone(zoneId uint, tags []string, abuseEmail string) (*Zone, []error) 
 
 	zone.Tags = strings.Join(tags, ",")
 	zone.AbuseEmail = abuseEmail
+	zone.Owner = owner
 
 	errs := zone.Validate()
 	if len(errs) > 0 {
@@ -54,6 +55,7 @@ func UpdateZone(zoneId uint, tags []string, abuseEmail string) (*Zone, []error) 
 
 	err = db.Model(&zone).Update("tags", zone.Tags).
 		Update("abuse_email", zone.AbuseEmail).
+		Update("owner", zone.Owner).
 		Update("serial", zone.Serial).Error
 	if err != nil {
 		return nil, []error{err}
@@ -96,10 +98,18 @@ func DeleteZone(zoneId uint) error {
 		return err
 	}
 
-	// Delete the zone file
-	_, err = SendCommandViaSSH(config.PrimaryNameServerIP, "rm -f "+path.Join(PrimaryZonePath, zone.Domain+".zone"))
-	if err != nil {
-		panic(err)
+	// Delete the zone file locally
+	if err := DeleteZoneFile(zone.Domain); err != nil {
+		log.Errorf("DeleteZone: delete zone file: %v", err)
+	}
+
+	// Delete the zone file on each secondary instance
+	for _, secondary := range config.SecondaryInstanceList() {
+		go func(url string) {
+			if err := DeleteZoneOnSecondary(url, config.APIToken, zone.Domain); err != nil {
+				log.Errorf("DeleteZoneOnSecondary(%s, %s): %v", url, zone.Domain, err)
+			}
+		}(secondary)
 	}
 
 	go SetSlavesBindConfig()
@@ -132,17 +142,17 @@ func NewRecord(zoneId uint, name string, ttl int, recordType string, prio int, v
 }
 
 // UpdateRecord updates existing record
-func UpdateRecord(recordId uint, name string, ttl int, prio int, value string) (*Record, []error) {
+func UpdateRecord(zoneId uint, recordId uint, name string, ttl int, prio int, value string) (*Record, []error) {
 	var record Record = Record{}
 	var zone Zone = Zone{}
 
 	db := GetDatabaseConnection()
-	err := db.Where("id = ?", recordId).Find(&record).Error
+	err := db.Where("id = ? AND zone_id = ?", recordId, zoneId).Find(&record).Error
 	if err != nil {
 		return nil, []error{err}
 	}
 
-	err = db.Where("id = ?", record.ZoneId).Preload("Records").Find(&zone).Error
+	err = db.Where("id = ?", zoneId).Preload("Records").Find(&zone).Error
 	if err != nil {
 		return nil, []error{err}
 	}
@@ -153,7 +163,7 @@ func UpdateRecord(recordId uint, name string, ttl int, prio int, value string) (
 		}
 	}
 	if record.ID == 0 {
-		panic(errors.New("record not found"))
+		return nil, []error{gorm.ErrRecordNotFound}
 	}
 
 	record.Name = name
@@ -195,24 +205,26 @@ func UpdateRecord(recordId uint, name string, ttl int, prio int, value string) (
 }
 
 // Delete existing record
-func DeleteRecord(recordId uint) error {
+func DeleteRecord(zoneId uint, recordId uint) error {
 	db := GetDatabaseConnection()
 
-	err := db.Where("id = ?", recordId).Delete(&Record{}).Error
+	result := db.Where("id = ? AND zone_id = ?", recordId, zoneId).Delete(&Record{})
+	err := result.Error
 	if err != nil {
 		return err
+	}
+
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
 	}
 
 	return nil
 }
 
 // Write new zone into DNS servers
-// TODO: here is a lot of SSH stuff we can do in parallel
 func Commit(zoneId uint) error {
-	var zones []Zone // all zones
-	var zone Zone    // updating zone
+	var zone Zone
 
-	// Get the committing zone and all zones from db
 	db := GetDatabaseConnection()
 	err := db.Model(&zone).Where("id = ?", zoneId).Preload("Records").Find(&zone).Error
 	if err != nil {
@@ -222,66 +234,62 @@ func Commit(zoneId uint) error {
 		return err
 	}
 
-	err = db.Find(&zones).Error
-	if err != nil {
-		return err
-	}
-
-	// Set new serial
+	// Set new serial and mark as committed
 	zone.SetNewSerial()
-	err = db.Model(&zone).Update("serial", zone.Serial).Error
+	err = db.Model(&zone).Update("serial", zone.Serial).Update("committed_serial", zone.Serial).Error
 	if err != nil {
 		return err
 	}
 
-	// Generate all config files for bind
-	var allZonesPrimaryConfig string
-	var allZonesSecondaryConfig string
-	for _, zone := range zones {
-		allZonesPrimaryConfig += zone.RenderPrimary()
-		allZonesPrimaryConfig += "\n"
-
-		allZonesSecondaryConfig += zone.RenderSecondary()
-		allZonesSecondaryConfig += "\n"
-	}
-
-	// Save slaves' main config
+	// Push secondary bind config to all secondary instances
 	go SetSlavesBindConfig()
 
-	go func(zone *Zone, IP string, bindConfig string) {
-		// This is called as goroutine so we need to recover from panicing
+	// Write zone file locally and sync to secondaries, then rebuild primary bind config
+	go func(zone *Zone) {
 		defer func() {
-			// TODO: implement sentry here
 			if r := recover(); r != nil {
-				log.Errorf(r.(error).Error())
+				captureRecoveredPanic(r)
+				log.Errorf("%v", r)
 			}
 		}()
-		// Save zone file
-		err = SendFileViaSSH(IP, path.Join(PrimaryZonePath, zone.Domain+".zone"), zone.Render())
-		if err != nil {
-			panic(err)
+
+		renderedZone := zone.Render()
+
+		// Write zone file to local filesystem (primary bind reads this)
+		if err := WriteZoneFile(zone.Domain, renderedZone); err != nil {
+			log.Errorf("Commit: write zone file: %v", err)
+			return
+		}
+
+		// Push zone file to each secondary instance
+		for _, secondary := range config.SecondaryInstanceList() {
+			go func(url string) {
+				if err := SyncZoneToSecondary(url, config.APIToken, zone.Domain, renderedZone); err != nil {
+					log.Errorf("SyncZoneToSecondary(%s, %s): %v", url, zone.Domain, err)
+				}
+			}(secondary)
 		}
 
 		SetMasterBindConfig()
-	}(&zone, config.PrimaryNameServer, allZonesPrimaryConfig)
+	}(&zone)
 
-	// Force zone refresh a few moments after everything is done
-	go func(config *Config, zone *Zone) {
-		// This is called as goroutine so we need to recover from panicing
+	// Force zone refresh on primary and all secondaries after settling
+	go func(cfg *Config, zone *Zone) {
 		defer func() {
-			// TODO: implement sentry here
 			if r := recover(); r != nil {
-				log.Errorf(r.(error).Error())
+				captureRecoveredPanic(r)
+				log.Errorf("%v", r)
 			}
 		}()
-		// Wait for 10 second to settle things up
 		time.Sleep(10 * time.Second)
 
-		// When reload is done, force to refresh
-		for _, server := range config.SecondaryNameServerIPs {
-			_, err = SendCommandViaSSH(server, "rndc refresh "+zone.Domain)
-			if err != nil {
-				panic(err)
+		if err := RefreshZone(zone.Domain); err != nil {
+			log.Errorf("RefreshZone(%s): %v", zone.Domain, err)
+		}
+
+		for _, secondary := range cfg.SecondaryInstanceList() {
+			if err := RefreshZoneOnSecondary(secondary, cfg.APIToken, zone.Domain); err != nil {
+				log.Errorf("RefreshZoneOnSecondary(%s, %s): %v", secondary, zone.Domain, err)
 			}
 		}
 	}(&config, &zone)

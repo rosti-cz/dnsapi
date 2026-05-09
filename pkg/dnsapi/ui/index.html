@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DNS Admin</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config = { darkMode: 'class' }</script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<style>
+  [x-cloak] { display: none !important; }
+  .status-ok    { @apply bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300; }
+  .status-fail  { @apply bg-red-100   text-red-800   dark:bg-red-900   dark:text-red-300;   }
+  .status-skip  { @apply bg-gray-100  text-gray-600  dark:bg-gray-700  dark:text-gray-400;  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spin { animation: spin 0.8s linear infinite; display: inline-block; }
+</style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 min-h-screen" x-data="app()" x-init="init()" x-cloak>
+
+<!-- ═══════════════════════ AUTH SCREEN ═══════════════════════ -->
+<div x-show="!authenticated" class="min-h-screen flex items-center justify-center">
+  <div class="bg-white dark:bg-gray-800 shadow rounded-xl p-8 w-full max-w-sm">
+    <h1 class="text-2xl font-bold mb-6 text-center dark:text-white">DNS Admin</h1>
+    <p x-show="authError" class="mb-4 text-sm text-red-600 bg-red-50 dark:bg-red-900 dark:text-red-300 rounded p-2" x-text="authError"></p>
+    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">API Token</label>
+    <input
+      type="password"
+      x-model="tokenInput"
+      @keydown.enter="login()"
+      class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      placeholder="Enter API token…"
+    />
+    <button
+      @click="login()"
+      class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg"
+    >Sign in</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════ MAIN APP ═══════════════════════════ -->
+<div x-show="authenticated" class="flex h-screen overflow-hidden">
+
+  <!-- ─── Left panel: zone list ─────────────────────────────── -->
+  <aside class="w-72 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+    <div class="p-4 border-b border-gray-100 dark:border-gray-700">
+      <div class="flex items-center justify-between mb-3">
+        <h1 class="text-lg font-bold text-gray-800 dark:text-white">DNS Admin</h1>
+        <button @click="toggleDark()" class="text-gray-400 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-lg" :title="darkMode ? 'Switch to light mode' : 'Switch to dark mode'" x-text="darkMode ? '☀' : '🌙'"></button>
+      </div>
+      <input
+        type="search"
+        x-model="search"
+        placeholder="Search zones…"
+        class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+    </div>
+
+    <div class="overflow-y-auto flex-1">
+      <template x-for="zone in filteredZones" :key="zone.id">
+        <div
+          class="flex items-center justify-between px-4 py-2.5 cursor-pointer border-b border-gray-50 dark:border-gray-700 hover:bg-blue-50 dark:hover:bg-gray-700"
+          :class="selectedZone && selectedZone.id === zone.id ? 'bg-blue-100 dark:bg-gray-700' : ''"
+          @click="selectZone(zone)"
+        >
+          <div class="flex flex-col min-w-0 flex-1">
+            <span class="text-sm text-gray-800 dark:text-gray-200 truncate" x-text="zone.domain"></span>
+            <span
+              x-show="zone.serial && zone.serial !== zone.committed_serial"
+              class="text-xs text-amber-600 font-medium"
+            >⚠ uncommitted</span>
+          </div>
+          <button
+            @click.stop="confirmDeleteZone(zone)"
+            class="ml-2 text-gray-400 hover:text-red-600 flex-shrink-0 text-xs px-1"
+            title="Delete zone"
+          >✕</button>
+        </div>
+      </template>
+      <div x-show="filteredZones.length === 0" class="p-4 text-sm text-gray-400 dark:text-gray-500">No zones found.</div>
+    </div>
+
+    <div class="p-4 border-t border-gray-100 dark:border-gray-700">
+      <button
+        @click="openNewZoneModal()"
+        class="w-full bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 rounded-lg"
+      >+ New Zone</button>
+      <button
+        @click="logout()"
+        class="w-full mt-2 text-xs text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 py-1"
+      >Sign out</button>
+    </div>
+  </aside>
+
+  <!-- ─── Right panel: zone editor ──────────────────────────── -->
+  <main class="flex-1 overflow-y-auto p-6" x-show="!selectedZone">
+    <div class="flex items-center justify-center h-full text-gray-400 dark:text-gray-500">
+      Select a zone on the left to edit it.
+    </div>
+  </main>
+
+  <main class="flex-1 overflow-y-auto p-6" x-show="selectedZone">
+    <template x-if="selectedZone">
+      <div>
+        <!-- Zone form -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 mb-6">
+          <div class="flex items-start justify-between mb-4">
+            <h2 class="text-xl font-semibold text-gray-800 dark:text-white" x-text="selectedZone.domain"></h2>
+            <div class="flex gap-2 flex-wrap justify-end">
+              <span
+                x-show="selectedZone.serial && selectedZone.serial !== selectedZone.committed_serial"
+                class="px-2 py-0.5 rounded text-xs bg-amber-100 text-amber-800 font-medium"
+              >⚠ uncommitted changes</span>
+              <template x-if="zoneStatus">
+                <span
+                  :class="zoneStatus.all_configured ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
+                  class="px-2 py-0.5 rounded text-xs font-medium"
+                  x-text="zoneStatus.all_configured ? '✓ all NS configured' : '✗ NS not fully configured'"
+                ></span>
+              </template>
+            </div>
+          </div>
+          <p x-show="zoneError" class="mb-4 text-sm text-red-600 bg-red-50 dark:bg-red-900 dark:text-red-300 rounded p-2" x-text="zoneError"></p>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div>
+              <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Owner</label>
+              <input type="text" x-model="editZone.owner"
+                class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Tags (comma-separated)</label>
+              <input type="text" x-model="editZone.tags"
+                class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Abuse email</label>
+              <input type="email" x-model="editZone.abuse_email"
+                class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+          </div>
+
+          <div class="flex gap-3 flex-wrap">
+            <button @click="saveZone()" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Save</button>
+            <button @click="commitZone()" class="bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-medium px-4 py-2 rounded-lg">Commit</button>
+            <button @click="testZone()" :disabled="loadingDns" class="bg-purple-600 hover:bg-purple-700 disabled:opacity-60 text-white text-sm font-medium px-4 py-2 rounded-lg flex items-center gap-2">
+              <svg x-show="loadingDns" class="spin" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+              <span x-text="loadingDns ? 'Testing…' : 'Test DNS'"></span>
+            </button>
+            <button @click="loadZoneStatus(true)" :disabled="loadingNs" class="bg-gray-500 hover:bg-gray-600 disabled:opacity-60 text-white text-sm font-medium px-4 py-2 rounded-lg flex items-center gap-2">
+              <svg x-show="loadingNs" class="spin" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+              <span x-text="loadingNs ? 'Checking…' : 'Check NS'"></span>
+            </button>
+            <span x-show="commitMsg" x-text="commitMsg" class="text-sm text-green-700 dark:text-green-400 self-center"></span>
+          </div>
+        </div>
+
+        <!-- NS status panel -->
+        <div x-show="zoneStatus" class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 mb-6">
+          <h3 class="font-semibold text-gray-700 dark:text-gray-300 mb-3">Nameserver Status</h3>
+          <div class="space-y-2 text-sm">
+            <template x-if="zoneStatus">
+              <div>
+                <!-- Commit status -->
+                <div class="flex items-center gap-3 mb-3 pb-3 border-b border-gray-100 dark:border-gray-700">
+                  <span class="text-gray-500 dark:text-gray-400 w-32 flex-shrink-0">Commit state</span>
+                  <span
+                    :class="zoneStatus.needs_commit ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'"
+                    class="px-2 py-0.5 rounded text-xs font-medium"
+                    x-text="zoneStatus.needs_commit ? 'Uncommitted changes' : 'Up to date'"
+                  ></span>
+                  <span class="text-xs text-gray-400 dark:text-gray-500" x-text="'serial: ' + (zoneStatus.committed_serial || 'none')"></span>
+                </div>
+                <!-- Primary NS -->
+                <div class="flex items-center gap-3 mb-2">
+                  <span class="text-gray-500 dark:text-gray-400 w-32 flex-shrink-0">Primary NS</span>
+                  <span class="font-mono text-xs text-gray-700 dark:text-gray-300" x-text="zoneStatus.primary && zoneStatus.primary.ip"></span>
+                  <span
+                    :class="zoneStatus.primary && zoneStatus.primary.configured ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
+                    class="px-2 py-0.5 rounded text-xs font-medium"
+                    x-text="zoneStatus.primary && zoneStatus.primary.configured ? '✓ configured' : '✗ not configured'"
+                  ></span>
+                  <span x-show="zoneStatus.primary && zoneStatus.primary.error" class="text-xs text-red-500 dark:text-red-400" x-text="zoneStatus.primary && zoneStatus.primary.error"></span>
+                </div>
+                <!-- Secondary NS -->
+                <template x-for="(ns, i) in (zoneStatus.secondary || [])" :key="i">
+                  <div class="flex items-center gap-3 mb-2">
+                    <span class="text-gray-500 dark:text-gray-400 w-32 flex-shrink-0">Secondary NS</span>
+                    <span class="font-mono text-xs text-gray-700 dark:text-gray-300" x-text="ns.ip"></span>
+                    <span
+                      :class="ns.configured ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
+                      class="px-2 py-0.5 rounded text-xs font-medium"
+                      x-text="ns.configured ? '✓ configured' : '✗ not configured'"
+                    ></span>
+                    <span x-show="ns.error" class="text-xs text-red-500 dark:text-red-400" x-text="ns.error"></span>
+                  </div>
+                </template>
+                <div x-show="!zoneStatus.secondary || zoneStatus.secondary.length === 0" class="text-xs text-gray-400 dark:text-gray-500 ml-36">No secondary nameservers configured.</div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- DNS test results -->
+        <div x-show="dnsResults" class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 mb-6">
+          <h3 class="font-semibold text-gray-700 dark:text-gray-300 mb-1">DNS Test Results</h3>
+          <p class="text-xs text-gray-400 dark:text-gray-500 mb-4">
+            Primary: <span x-text="dnsResults && dnsResults.primary_ns"></span>
+            &nbsp;|&nbsp; Secondary: <span x-text="dnsResults && (dnsResults.secondary_ns || []).join(', ') || '—'"></span>
+          </p>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs border-collapse">
+              <thead>
+                <tr class="text-left text-gray-500 dark:text-gray-400 uppercase border-b border-gray-200 dark:border-gray-700">
+                  <th class="py-2 pr-3">Name</th>
+                  <th class="py-2 pr-3">FQDN</th>
+                  <th class="py-2 pr-3">Type</th>
+                  <th class="py-2 pr-3">DB Value</th>
+                  <th class="py-2 pr-3">Primary</th>
+                  <th class="py-2 pr-3">Secondary</th>
+                  <th class="py-2">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="r in (dnsResults ? dnsResults.records : [])" :key="r.record_id">
+                  <tr class="border-b border-gray-100 dark:border-gray-700">
+                    <td class="py-1.5 pr-3 font-mono dark:text-gray-300" x-text="r.name || '@'"></td>
+                    <td class="py-1.5 pr-3 font-mono text-gray-500 dark:text-gray-400" x-text="r.fqdn"></td>
+                    <td class="py-1.5 pr-3 dark:text-gray-300" x-text="r.type"></td>
+                    <td class="py-1.5 pr-3 font-mono dark:text-gray-300" x-text="r.db_value"></td>
+                    <td class="py-1.5 pr-3 font-mono dark:text-gray-300" x-text="(r.primary_values || []).join(', ') || '—'"></td>
+                    <td class="py-1.5 pr-3 font-mono dark:text-gray-300" x-text="(r.secondary_values || []).join(', ') || '—'"></td>
+                    <td class="py-1.5">
+                      <template x-if="!r.supported">
+                        <span class="px-2 py-0.5 rounded text-xs status-skip">skip</span>
+                      </template>
+                      <template x-if="r.supported && r.primary_ok && r.secondary_ok">
+                        <span class="px-2 py-0.5 rounded text-xs status-ok">OK</span>
+                      </template>
+                      <template x-if="r.supported && (!r.primary_ok || !r.secondary_ok)">
+                        <span class="px-2 py-0.5 rounded text-xs status-fail" x-text="r.error || 'mismatch'"></span>
+                      </template>
+                    </td>
+                  </tr>
+                </template>
+                <tr x-show="dnsResults && dnsResults.records.length === 0">
+                  <td colspan="7" class="py-4 text-center text-gray-400 dark:text-gray-500">No records.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Records table -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold text-gray-700 dark:text-gray-300">Records</h3>
+            <button @click="openNewRecordModal()" class="bg-green-600 hover:bg-green-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg">+ Add Record</button>
+          </div>
+          <p x-show="recordError" class="mb-3 text-sm text-red-600 bg-red-50 dark:bg-red-900 dark:text-red-300 rounded p-2" x-text="recordError"></p>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="text-left text-gray-500 dark:text-gray-400 uppercase text-xs border-b border-gray-200 dark:border-gray-700">
+                  <th class="py-2 pr-3">Name</th>
+                  <th class="py-2 pr-3">Type</th>
+                  <th class="py-2 pr-3">TTL</th>
+                  <th class="py-2 pr-3">Prio</th>
+                  <th class="py-2 pr-3">Value</th>
+                  <th class="py-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="rec in (selectedZone ? selectedZone.records : [])" :key="rec.id">
+                  <tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
+                    <td class="py-1.5 pr-3 font-mono dark:text-gray-200" x-text="rec.name || '@'"></td>
+                    <td class="py-1.5 pr-3 dark:text-gray-200" x-text="rec.type"></td>
+                    <td class="py-1.5 pr-3 dark:text-gray-200" x-text="rec.ttl"></td>
+                    <td class="py-1.5 pr-3 dark:text-gray-200" x-text="rec.prio"></td>
+                    <td class="py-1.5 pr-3 font-mono truncate max-w-xs dark:text-gray-200" x-text="rec.value"></td>
+                    <td class="py-1.5 text-right space-x-2">
+                      <button @click="openEditRecordModal(rec)" class="text-blue-500 hover:text-blue-700 text-xs">Edit</button>
+                      <button @click="deleteRecord(rec)" class="text-red-400 hover:text-red-600 text-xs">Del</button>
+                    </td>
+                  </tr>
+                </template>
+                <tr x-show="!selectedZone || !selectedZone.records || selectedZone.records.length === 0">
+                  <td colspan="6" class="py-4 text-center text-gray-400 dark:text-gray-500 text-sm">No records yet.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </template>
+  </main>
+</div>
+
+<!-- ═══════════════════════ NEW ZONE MODAL ═══════════════════ -->
+<div x-show="showNewZoneModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md p-6" @click.stop>
+    <h3 class="text-lg font-semibold mb-4 dark:text-white">New Zone</h3>
+    <p x-show="newZoneError" class="mb-3 text-sm text-red-600 bg-red-50 dark:bg-red-900 dark:text-red-300 rounded p-2" x-text="newZoneError"></p>
+    <div class="space-y-3">
+      <div>
+        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Domain</label>
+        <input type="text" x-model="newZone.domain" placeholder="example.com"
+          class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Owner</label>
+        <input type="text" x-model="newZone.owner"
+          class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Tags</label>
+        <input type="text" x-model="newZone.tags" placeholder="tag1,tag2"
+          class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Abuse email</label>
+        <input type="email" x-model="newZone.abuse_email"
+          class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      </div>
+    </div>
+    <div class="flex justify-end gap-3 mt-5">
+      <button @click="showNewZoneModal = false" class="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 px-4 py-2">Cancel</button>
+      <button @click="createZone()" class="bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════ RECORD MODAL ══════════════════════ -->
+<div x-show="showRecordModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md p-6" @click.stop>
+    <h3 class="text-lg font-semibold mb-4 dark:text-white" x-text="editingRecord ? 'Edit Record' : 'New Record'"></h3>
+    <p x-show="recordModalError" class="mb-3 text-sm text-red-600 bg-red-50 dark:bg-red-900 dark:text-red-300 rounded p-2" x-text="recordModalError"></p>
+    <div class="space-y-3">
+      <div>
+        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Name (@ for root)</label>
+        <input type="text" x-model="recordForm.name" placeholder="www"
+          class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Type</label>
+        <select x-model="recordForm.type" :disabled="!!editingRecord"
+          class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 dark:disabled:bg-gray-600">
+          <option>A</option>
+          <option>AAAA</option>
+          <option>MX</option>
+          <option>CNAME</option>
+          <option>TXT</option>
+          <option>NS</option>
+          <option>SRV</option>
+          <option>CAA</option>
+        </select>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">TTL</label>
+          <input type="number" x-model.number="recordForm.ttl"
+            class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div x-show="recordForm.type === 'MX'">
+          <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Priority</label>
+          <input type="number" x-model.number="recordForm.prio"
+            class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Value</label>
+        <input type="text" x-model="recordForm.value" placeholder="1.2.3.4"
+          class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      </div>
+    </div>
+    <div class="flex justify-end gap-3 mt-5">
+      <button @click="showRecordModal = false" class="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 px-4 py-2">Cancel</button>
+      <button @click="saveRecord()" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function app() {
+  return {
+    // auth
+    authenticated: false,
+    token: '',
+    tokenInput: '',
+    authError: '',
+    darkMode: false,
+
+    // zones
+    zones: [],
+    search: '',
+    selectedZone: null,
+    editZone: { tags: '', abuse_email: '', owner: '' },
+    zoneError: '',
+    commitMsg: '',
+    dnsResults: null,
+    zoneStatus: null,
+    loadingDns: false,
+    loadingNs: false,
+
+    // new zone modal
+    showNewZoneModal: false,
+    newZone: { domain: '', tags: '', abuse_email: '', owner: '' },
+    newZoneError: '',
+
+    // record modal
+    showRecordModal: false,
+    editingRecord: null,
+    recordForm: { name: '', type: 'A', ttl: 3600, prio: 0, value: '' },
+    recordModalError: '',
+    recordError: '',
+
+    get filteredZones() {
+      if (!this.search) return this.zones;
+      const q = this.search.toLowerCase();
+      return this.zones.filter(z => z.domain.toLowerCase().includes(q));
+    },
+
+    init() {
+      // Dark mode
+      const dark = localStorage.getItem('dnsapi_dark');
+      this.darkMode = dark === 'true' || (dark === null && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      document.documentElement.classList.toggle('dark', this.darkMode);
+
+      const saved = localStorage.getItem('dnsapi_token');
+      if (saved) {
+        this.token = saved;
+        this.validateToken();
+      }
+    },
+
+    toggleDark() {
+      this.darkMode = !this.darkMode;
+      document.documentElement.classList.toggle('dark', this.darkMode);
+      localStorage.setItem('dnsapi_dark', this.darkMode);
+    },
+
+    async login() {
+      this.authError = '';
+      this.token = this.tokenInput;
+      await this.validateToken();
+    },
+
+    async validateToken() {
+      try {
+        const resp = await this.fetch('/zones/');
+        if (!resp.ok) throw new Error('Invalid token');
+        this.zones = await resp.json() || [];
+        localStorage.setItem('dnsapi_token', this.token);
+        this.authenticated = true;
+      } catch (e) {
+        this.authError = e.message || 'Authentication failed';
+        this.authenticated = false;
+      }
+    },
+
+    logout() {
+      localStorage.removeItem('dnsapi_token');
+      this.token = '';
+      this.tokenInput = '';
+      this.authenticated = false;
+      this.selectedZone = null;
+    },
+
+    fetch(path, opts = {}) {
+      opts.headers = Object.assign({}, opts.headers, { 'Authorization': this.token });
+      return fetch(path, opts);
+    },
+
+    async loadZones() {
+      try {
+        const resp = await this.fetch('/zones/');
+        this.zones = (await resp.json()) || [];
+      } catch (_) {}
+    },
+
+    async selectZone(zone) {
+      this.dnsResults = null;
+      this.zoneStatus = null;
+      this.loadingDns = false;
+      this.loadingNs = false;
+      this.zoneError = '';
+      this.commitMsg = '';
+      this.recordError = '';
+      // Fetch full zone with records
+      const resp = await this.fetch(`/zones/${zone.id}`);
+      this.selectedZone = await resp.json();
+      this.editZone = {
+        tags: this.selectedZone.tags || '',
+        abuse_email: this.selectedZone.abuse_email || '',
+        owner: this.selectedZone.owner || '',
+      };
+      // Load NS/commit status in background
+      this.loadZoneStatus();
+    },
+
+    async loadZoneStatus(showSpinner = false) {
+      if (showSpinner) this.loadingNs = true;
+      try {
+        const resp = await this.fetch(`/zones/${this.selectedZone.id}/status`);
+        if (resp.ok) this.zoneStatus = await resp.json();
+      } finally {
+        if (showSpinner) this.loadingNs = false;
+      }
+    },
+
+    async saveZone() {
+      this.zoneError = '';
+      this.commitMsg = '';
+      const resp = await this.fetch(`/zones/${this.selectedZone.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tags: this.editZone.tags,
+          abuse_email: this.editZone.abuse_email,
+          owner: this.editZone.owner,
+        }),
+      });
+      if (!resp.ok) {
+        const d = await resp.json().catch(() => ({}));
+        this.zoneError = d.message || 'Save failed';
+        return;
+      }
+      this.selectedZone = await resp.json();
+      this.commitMsg = 'Saved.';
+      await this.loadZones();
+    },
+
+    async commitZone() {
+      this.commitMsg = '';
+      this.zoneError = '';
+      const resp = await this.fetch(`/zones/${this.selectedZone.id}/commit`, { method: 'PUT' });
+      if (!resp.ok) {
+        const d = await resp.json().catch(() => ({}));
+        this.zoneError = d.message || 'Commit failed';
+        return;
+      }
+      this.commitMsg = 'Committed!';
+      // Refresh zone data so badges update
+      const zResp = await this.fetch(`/zones/${this.selectedZone.id}`);
+      if (zResp.ok) this.selectedZone = await zResp.json();
+      await this.loadZones();
+      await this.loadZoneStatus();
+    },
+
+    async testZone() {
+      this.dnsResults = null;
+      this.loadingDns = true;
+      try {
+        const resp = await this.fetch(`/zones/${this.selectedZone.id}/test`);
+        if (!resp.ok) {
+          const d = await resp.json().catch(() => ({}));
+          this.zoneError = d.message || 'Test failed';
+          return;
+        }
+        this.dnsResults = await resp.json();
+      } finally {
+        this.loadingDns = false;
+      }
+    },
+
+    openNewZoneModal() {
+      this.newZone = { domain: '', tags: '', abuse_email: '', owner: '' };
+      this.newZoneError = '';
+      this.showNewZoneModal = true;
+    },
+
+    async createZone() {
+      this.newZoneError = '';
+      const resp = await this.fetch('/zones/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(this.newZone),
+      });
+      if (!resp.ok) {
+        const d = await resp.json().catch(() => ({}));
+        this.newZoneError = d.message || 'Creation failed';
+        return;
+      }
+      const zone = await resp.json();
+      this.showNewZoneModal = false;
+      await this.loadZones();
+      await this.selectZone(zone);
+    },
+
+    async confirmDeleteZone(zone) {
+      if (!confirm(`Delete zone "${zone.domain}"? This cannot be undone.`)) return;
+      const resp = await this.fetch(`/zones/${zone.id}`, { method: 'DELETE' });
+      if (!resp.ok) {
+        alert('Delete failed');
+        return;
+      }
+      if (this.selectedZone && this.selectedZone.id === zone.id) this.selectedZone = null;
+      await this.loadZones();
+    },
+
+    openNewRecordModal() {
+      this.editingRecord = null;
+      this.recordModalError = '';
+      this.recordForm = { name: '', type: 'A', ttl: 3600, prio: 0, value: '' };
+      this.showRecordModal = true;
+    },
+
+    openEditRecordModal(rec) {
+      this.editingRecord = rec;
+      this.recordModalError = '';
+      this.recordForm = {
+        name: rec.name,
+        type: rec.type,
+        ttl: rec.ttl,
+        prio: rec.prio,
+        value: rec.value,
+      };
+      this.showRecordModal = true;
+    },
+
+    async saveRecord() {
+      this.recordModalError = '';
+      const body = {
+        name: this.recordForm.name,
+        type: this.recordForm.type,
+        ttl: this.recordForm.ttl,
+        prio: this.recordForm.prio,
+        value: this.recordForm.value,
+      };
+
+      let resp;
+      if (this.editingRecord) {
+        resp = await this.fetch(`/zones/${this.selectedZone.id}/records/${this.editingRecord.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+      } else {
+        resp = await this.fetch(`/zones/${this.selectedZone.id}/records/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+      }
+
+      if (!resp.ok) {
+        const d = await resp.json().catch(() => ({}));
+        this.recordModalError = d.message || 'Save failed';
+        return;
+      }
+      this.showRecordModal = false;
+      await this.selectZone(this.selectedZone);
+    },
+
+    async deleteRecord(rec) {
+      if (!confirm(`Delete record "${rec.name || '@'} ${rec.type} ${rec.value}"?`)) return;
+      const resp = await this.fetch(`/zones/${this.selectedZone.id}/records/${rec.id}`, { method: 'DELETE' });
+      if (!resp.ok) {
+        this.recordError = 'Delete failed';
+        return;
+      }
+      await this.selectZone(this.selectedZone);
+    },
+  };
+}
+</script>
+</body>
+</html>
